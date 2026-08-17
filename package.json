@@ -3,9 +3,11 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
+    "dev": "npm run dev:local",
+    "dev:local": "node --env-file=.env.local ./node_modules/next/dist/bin/next dev",
+    "build": "npm run build:prod",
+    "build:prod": "node --env-file=.env.prod ./node_modules/next/dist/bin/next build",
+    "start": "node --env-file=.env.prod ./node_modules/next/dist/bin/next start",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -22,4 +24,3 @@
     "typescript": "^5.7.2"
   }
 }
-

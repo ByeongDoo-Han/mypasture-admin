@@ -38,6 +38,9 @@ jobs:
       - name: Check TypeScript
         run: npm run typecheck
 
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=high
+
       - name: Prepare production environment
         run: cp .env.prod.example .env.prod
 

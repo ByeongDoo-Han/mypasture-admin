@@ -1,0 +1,41 @@
+name: Feature
+description: My Pasture 관리자 기능 구현 작업
+title: "[Feature] "
+labels:
+  - enhancement
+body:
+  - type: dropdown
+    id: domain
+    attributes:
+      label: 관리 도메인
+      options:
+        - members
+        - daily-word-challenge
+        - rewards
+        - prayer-notifications
+        - ai-usage-statistics
+    validations:
+      required: true
+  - type: textarea
+    id: objective
+    attributes:
+      label: 관리 업무 흐름
+      description: 관리자가 수행할 작업과 기대 결과를 설명해 주세요.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: 완료 조건
+      value: |
+        - [ ] 권한과 감사 정책
+        - [ ] 로딩, 빈 상태, 오류 상태
+        - [ ] 위험 작업 확인 단계
+        - [ ] 타입 검사와 운영 빌드
+    validations:
+      required: true
+  - type: textarea
+    id: impact
+    attributes:
+      label: 영향 범위
+      description: API, 개인정보, 운영 절차 영향을 기록해 주세요.

@@ -6,5 +6,7 @@ body {
   margin: 0;
   background: #f8faf9;
   color: #17211b;
+  font-family: Arial, "Apple SD Gothic Neo", sans-serif;
+  letter-spacing: 0;
+  -webkit-font-smoothing: antialiased;
 }
-

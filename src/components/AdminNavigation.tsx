@@ -2,11 +2,12 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { BarChart3, ListChecks } from 'lucide-react';
+import { BarChart3, BrainCircuit, ListChecks } from 'lucide-react';
 
 const items = [
   { href: '/', label: '운영 현황', icon: BarChart3 },
   { href: '/quiet-time', label: 'QT 모임', icon: ListChecks },
+  { href: '/ai-models', label: 'AI 모델', icon: BrainCircuit },
 ];
 
 /** 현재 경로를 표시하며 실제 구현된 관리자 화면만 노출하는 내비게이션입니다. */

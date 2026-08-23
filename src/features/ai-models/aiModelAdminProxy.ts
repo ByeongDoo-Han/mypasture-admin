@@ -2,10 +2,10 @@ import 'server-only';
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { ACCESS_COOKIE, backendUrl } from '../../lib/backend';
-import { reasoningSchema } from './aiModelAdmin';
+import { aiUseCaseSchema, reasoningSchema } from './aiModelAdmin';
 
 const activationSchema = z.object({
-  operationId: z.string().uuid(), useCase: z.literal('AI_PASTOR'),
+  operationId: z.string().uuid(), useCase: aiUseCaseSchema,
   generatorModel: z.string().min(1).max(80), evaluatorModel: z.string().min(1).max(80),
   generatorReasoningEffort: reasoningSchema, evaluatorReasoningEffort: reasoningSchema,
   maxOutputTokens: z.number().int().min(100).max(2000),

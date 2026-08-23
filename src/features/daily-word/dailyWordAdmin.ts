@@ -23,20 +23,50 @@ export const generationJobSchema = z.object({
   createdAt: z.string(), updatedAt: z.string(),
 });
 
+const readinessSchema = z.object({
+  date: z.string(), status: z.enum(['MISSING', 'DRAFT', 'PUBLISHED', 'REJECTED']), publishedAt: z.string().nullable(),
+});
+
+export const operationsSummarySchema = z.object({
+  from: z.string(), to: z.string(), generatedAt: z.string(),
+  today: readinessSchema, tomorrow: readinessSchema,
+  content: z.object({
+    draft: z.number().int().nonnegative(), published: z.number().int().nonnegative(),
+    rejected: z.number().int().nonnegative(), missing: z.number().int().nonnegative(),
+    datesNeedingAttention: z.array(z.string()),
+  }),
+  jobs: z.object({
+    pending: z.number().int().nonnegative(), processing: z.number().int().nonnegative(),
+    completed: z.number().int().nonnegative(), failed: z.number().int().nonnegative(),
+    oldestActiveCreatedAt: z.string().nullable(),
+  }),
+  usage: z.object({
+    embeddingTokens: z.number().int().nonnegative(), promptTokens: z.number().int().nonnegative(),
+    completionTokens: z.number().int().nonnegative(), estimatedCostUsd: z.number().nonnegative(),
+  }),
+});
+
 export type DailyWordAdmin = z.infer<typeof dailyWordSchema>;
 export type DailyWordGenerationJob = z.infer<typeof generationJobSchema>;
+export type DailyWordOperationsSummary = z.infer<typeof operationsSummarySchema>;
 
 /** 관리자 JWT로 오늘의 말씀 검수 목록과 최근 생성 작업을 서버에서 조회하고 검증합니다. */
-export async function getDailyWordOperations(): Promise<{ words: DailyWordAdmin[]; jobs: DailyWordGenerationJob[] }> {
+export async function getDailyWordOperations(): Promise<{
+  words: DailyWordAdmin[];
+  jobs: DailyWordGenerationJob[];
+  summary: DailyWordOperationsSummary;
+}> {
   const { accessToken } = await requireAdminSession();
   const headers = { Authorization: `Bearer ${accessToken}` };
-  const [wordsResponse, jobsResponse] = await Promise.all([
+  const [wordsResponse, jobsResponse, summaryResponse] = await Promise.all([
     fetch(backendUrl('/api/v1/admin/daily-words'), { headers, cache: 'no-store', signal: AbortSignal.timeout(7_000) }),
     fetch(backendUrl('/api/v1/admin/daily-words/generation-jobs'), { headers, cache: 'no-store', signal: AbortSignal.timeout(7_000) }),
-  ]).catch(() => [null, null] as const);
-  if (!wordsResponse?.ok || !jobsResponse?.ok) throw new Error('오늘의 말씀 운영 데이터를 불러오지 못했습니다.');
+    fetch(backendUrl('/api/v1/admin/daily-words/operations-summary'), { headers, cache: 'no-store', signal: AbortSignal.timeout(7_000) }),
+  ]).catch(() => [null, null, null] as const);
+  if (!wordsResponse?.ok || !jobsResponse?.ok || !summaryResponse?.ok) throw new Error('오늘의 말씀 운영 데이터를 불러오지 못했습니다.');
   const words = z.array(dailyWordSchema).safeParse(await wordsResponse.json().catch(() => null));
   const jobs = z.array(generationJobSchema).safeParse(await jobsResponse.json().catch(() => null));
-  if (!words.success || !jobs.success) throw new Error('오늘의 말씀 API 응답 형식이 올바르지 않습니다.');
-  return { words: words.data, jobs: jobs.data };
+  const summary = operationsSummarySchema.safeParse(await summaryResponse.json().catch(() => null));
+  if (!words.success || !jobs.success || !summary.success) throw new Error('오늘의 말씀 API 응답 형식이 올바르지 않습니다.');
+  return { words: words.data, jobs: jobs.data, summary: summary.data };
 }

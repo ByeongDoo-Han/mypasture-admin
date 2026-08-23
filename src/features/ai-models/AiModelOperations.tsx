@@ -11,7 +11,8 @@ type PendingAction = 'activate' | string | null;
 export function AiModelOperations({ overview }: { overview: AiRuntimeOverview }) {
   const router = useRouter();
   const current = overview.current;
-  const [evaluationEnabled, setEvaluationEnabled] = useState(current.evaluationEnabled);
+  const isDailyWord = current.useCase === 'DAILY_WORD';
+  const [evaluationEnabled, setEvaluationEnabled] = useState(isDailyWord ? false : current.evaluationEnabled);
   const [reason, setReason] = useState('');
   const [rollbackReason, setRollbackReason] = useState('');
   const [pending, setPending] = useState<PendingAction>(null);
@@ -21,6 +22,7 @@ export function AiModelOperations({ overview }: { overview: AiRuntimeOverview })
   const evaluatorModels = overview.models.filter((model) => model.roles.includes('EVALUATOR'));
   const currentGeneratorSupported = generatorModels.some((model) => model.modelId === current.generatorModel);
   const currentEvaluatorSupported = evaluatorModels.some((model) => model.modelId === current.evaluatorModel);
+  const dailyWordEvaluatorModel = currentEvaluatorSupported ? current.evaluatorModel : evaluatorModels[0]?.modelId ?? current.evaluatorModel;
 
   async function activate(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -28,16 +30,16 @@ export function AiModelOperations({ overview }: { overview: AiRuntimeOverview })
     if (reason.trim().length < 5) return setMessage({ kind: 'error', text: '변경 사유를 5자 이상 입력해 주세요.' });
     if (!window.confirm('이 설정을 새 활성 버전으로 적용하시겠습니까?')) return;
     const request = {
-      useCase: 'AI_PASTOR',
+      useCase: current.useCase,
       generatorModel: String(form.get('generatorModel')),
-      evaluatorModel: String(form.get('evaluatorModel')),
+      evaluatorModel: isDailyWord ? dailyWordEvaluatorModel : String(form.get('evaluatorModel')),
       generatorReasoningEffort: String(form.get('generatorReasoningEffort')),
-      evaluatorReasoningEffort: String(form.get('evaluatorReasoningEffort')),
+      evaluatorReasoningEffort: isDailyWord ? current.evaluatorReasoningEffort : String(form.get('evaluatorReasoningEffort')),
       maxOutputTokens: Number(form.get('maxOutputTokens')),
-      evaluationMaxOutputTokens: Number(form.get('evaluationMaxOutputTokens')),
-      evaluationEnabled,
-      evaluationThreshold: Number(form.get('evaluationThreshold')),
-      maxRevisionCount: Number(form.get('maxRevisionCount')),
+      evaluationMaxOutputTokens: isDailyWord ? current.evaluationMaxOutputTokens : Number(form.get('evaluationMaxOutputTokens')),
+      evaluationEnabled: isDailyWord ? false : evaluationEnabled,
+      evaluationThreshold: isDailyWord ? current.evaluationThreshold : Number(form.get('evaluationThreshold')),
+      maxRevisionCount: isDailyWord ? 0 : Number(form.get('maxRevisionCount')),
       reason: reason.trim(),
     };
     const operationId = operationIdFor('activate', JSON.stringify(request));
@@ -85,29 +87,27 @@ export function AiModelOperations({ overview }: { overview: AiRuntimeOverview })
       <form onSubmit={activate} className="border-y border-slate-200 bg-white px-4 py-6 sm:px-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div><h2 className="text-base font-semibold text-slate-950">활성 설정</h2><p className="mt-1 text-sm text-slate-500">버전 {current.version} · {current.source === 'ENVIRONMENT' ? '환경 변수 기본값' : 'DB 활성 버전'}</p></div>
-          <span className="rounded-md bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-800">AI 목자</span>
+          <span className="rounded-md bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-800">{isDailyWord ? '오늘의 말씀' : 'AI 목자'}</span>
         </div>
         <div className="mt-6 grid gap-5 lg:grid-cols-2">
           <SelectField label="생성 모델" name="generatorModel" defaultValue={current.generatorModel}>
             {!currentGeneratorSupported ? <option value={current.generatorModel} disabled>{current.generatorModel} · 지원 종료</option> : null}
             {generatorModels.map((model) => <option key={model.modelId} value={model.modelId}>{model.displayName}</option>)}
           </SelectField>
-          <SelectField label="평가 모델" name="evaluatorModel" defaultValue={current.evaluatorModel}>
+          {!isDailyWord ? <SelectField label="평가 모델" name="evaluatorModel" defaultValue={current.evaluatorModel}>
             {!currentEvaluatorSupported ? <option value={current.evaluatorModel} disabled>{current.evaluatorModel} · 지원 종료</option> : null}
             {evaluatorModels.map((model) => <option key={model.modelId} value={model.modelId}>{model.displayName}</option>)}
-          </SelectField>
+          </SelectField> : null}
           <SelectField label="생성 추론 강도" name="generatorReasoningEffort" defaultValue={current.generatorReasoningEffort}><ReasoningOptions /></SelectField>
-          <SelectField label="평가 추론 강도" name="evaluatorReasoningEffort" defaultValue={current.evaluatorReasoningEffort}><ReasoningOptions /></SelectField>
+          {!isDailyWord ? <SelectField label="평가 추론 강도" name="evaluatorReasoningEffort" defaultValue={current.evaluatorReasoningEffort}><ReasoningOptions /></SelectField> : null}
           <NumberField label="생성 최대 토큰" name="maxOutputTokens" defaultValue={current.maxOutputTokens} min={100} max={2000} />
-          <NumberField label="평가 최대 토큰" name="evaluationMaxOutputTokens" defaultValue={current.evaluationMaxOutputTokens} min={100} max={500} />
-          <NumberField label="통과 기준 점수" name="evaluationThreshold" defaultValue={current.evaluationThreshold} min={1} max={5} />
-          <SelectField label="최대 수정 횟수" name="maxRevisionCount" defaultValue={String(current.maxRevisionCount)}><option value="0">수정 안 함</option><option value="1">최대 1회</option></SelectField>
+          {!isDailyWord ? <><NumberField label="평가 최대 토큰" name="evaluationMaxOutputTokens" defaultValue={current.evaluationMaxOutputTokens} min={100} max={500} /><NumberField label="통과 기준 점수" name="evaluationThreshold" defaultValue={current.evaluationThreshold} min={1} max={5} /><SelectField label="최대 수정 횟수" name="maxRevisionCount" defaultValue={String(current.maxRevisionCount)}><option value="0">수정 안 함</option><option value="1">최대 1회</option></SelectField></> : null}
         </div>
-        {!currentGeneratorSupported || !currentEvaluatorSupported ? <p role="alert" className="mt-4 border-l-4 border-amber-500 bg-amber-50 px-3 py-2 text-sm text-amber-900">현재 설정에 허용 목록 밖의 모델이 있습니다. 지원되는 모델을 선택해야 새 버전을 활성화할 수 있습니다.</p> : null}
-        <label className="mt-5 flex min-h-11 items-center gap-3 border-y border-slate-100 py-3 text-sm font-medium text-slate-800">
+        {!currentGeneratorSupported || (!isDailyWord && !currentEvaluatorSupported) ? <p role="alert" className="mt-4 border-l-4 border-amber-500 bg-amber-50 px-3 py-2 text-sm text-amber-900">현재 설정에 허용 목록 밖의 모델이 있습니다. 지원되는 모델을 선택해야 새 버전을 활성화할 수 있습니다.</p> : null}
+        {isDailyWord ? <p className="mt-5 border-y border-slate-100 py-3 text-sm text-slate-600">오늘의 말씀은 생성된 초안을 관리자 검수 후 게시하므로 자동 평가 모델과 자동 수정은 사용하지 않습니다.</p> : <label className="mt-5 flex min-h-11 items-center gap-3 border-y border-slate-100 py-3 text-sm font-medium text-slate-800">
           <input type="checkbox" checked={evaluationEnabled} onChange={(event) => setEvaluationEnabled(event.target.checked)} className="h-4 w-4 accent-emerald-700" />
           생성 답변을 평가한 뒤 최종 답변만 전송
-        </label>
+        </label>}
         <label className="mt-5 block text-sm font-medium text-slate-700">변경 사유
           <textarea value={reason} onChange={(event) => setReason(event.target.value)} maxLength={500} rows={3} className="mt-2 w-full resize-y rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100" placeholder="운영 지표와 검증 결과를 포함한 변경 사유" />
         </label>
@@ -122,7 +122,7 @@ export function AiModelOperations({ overview }: { overview: AiRuntimeOverview })
       <section>
         <h2 className="text-base font-semibold text-slate-950">변경 이력</h2>
         <label className="mt-3 block text-sm font-medium text-slate-700">롤백 사유<input value={rollbackReason} onChange={(event) => setRollbackReason(event.target.value)} maxLength={500} className="mt-2 h-10 w-full rounded-md border border-slate-300 px-3 text-sm" placeholder="복원이 필요한 이유" /></label>
-        <div className="mt-3 overflow-x-auto border-y border-slate-200 bg-white"><table className="w-full min-w-[940px] text-left text-sm"><thead className="bg-slate-50 text-xs text-slate-500"><tr><Th>버전</Th><Th>생성 / 평가</Th><Th>검증</Th><Th>변경 사유</Th><Th>생성 시각</Th><Th right>조치</Th></tr></thead><tbody className="divide-y divide-slate-100">{overview.history.map((entry) => <tr key={entry.config.id ?? `env-${entry.config.version}`}><Td><strong>v{entry.config.version}</strong>{entry.active ? <p className="mt-1 text-xs font-semibold text-emerald-700">활성</p> : null}</Td><Td>{entry.config.generatorModel}<p className="mt-1 text-xs text-slate-500">{entry.config.evaluatorModel}</p></Td><Td>{entry.config.evaluationEnabled ? `${entry.config.evaluationThreshold}점 이상 · 수정 ${entry.config.maxRevisionCount}회` : '평가 안 함'}</Td><Td><span className="block max-w-[260px] whitespace-normal">{entry.reason}</span></Td><Td>{new Date(entry.createdAt).toLocaleString('ko-KR')}</Td><Td right>{!entry.active && entry.config.id ? <button type="button" title={`버전 ${entry.config.version} 복원`} disabled={pending !== null} onClick={() => rollback(entry.config.id!, entry.config.version)} className="inline-flex h-9 items-center gap-1 rounded-md border border-slate-300 px-3 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50">{pending === `rollback:${entry.config.id}` ? <LoaderCircle className="animate-spin" size={14} /> : <RotateCcw size={14} />}복원</button> : null}</Td></tr>)}{overview.history.length === 0 ? <tr><td colSpan={6} className="px-4 py-12 text-center text-slate-500">아직 DB에 저장된 변경 이력이 없습니다.</td></tr> : null}</tbody></table></div>
+        <div className="mt-3 overflow-x-auto border-y border-slate-200 bg-white"><table className="w-full min-w-[940px] text-left text-sm"><thead className="bg-slate-50 text-xs text-slate-500"><tr><Th>버전</Th><Th>{isDailyWord ? '생성 모델' : '생성 / 평가'}</Th><Th>{isDailyWord ? '출력 제한' : '검증'}</Th><Th>변경 사유</Th><Th>생성 시각</Th><Th right>조치</Th></tr></thead><tbody className="divide-y divide-slate-100">{overview.history.map((entry) => <tr key={entry.config.id ?? `env-${entry.config.version}`}><Td><strong>v{entry.config.version}</strong>{entry.active ? <p className="mt-1 text-xs font-semibold text-emerald-700">활성</p> : null}</Td><Td>{entry.config.generatorModel}{!isDailyWord ? <p className="mt-1 text-xs text-slate-500">{entry.config.evaluatorModel}</p> : null}</Td><Td>{isDailyWord ? `최대 ${entry.config.maxOutputTokens} 토큰` : entry.config.evaluationEnabled ? `${entry.config.evaluationThreshold}점 이상 · 수정 ${entry.config.maxRevisionCount}회` : '평가 안 함'}</Td><Td><span className="block max-w-[260px] whitespace-normal">{entry.reason}</span></Td><Td>{new Date(entry.createdAt).toLocaleString('ko-KR')}</Td><Td right>{!entry.active && entry.config.id ? <button type="button" title={`버전 ${entry.config.version} 복원`} disabled={pending !== null} onClick={() => rollback(entry.config.id!, entry.config.version)} className="inline-flex h-9 items-center gap-1 rounded-md border border-slate-300 px-3 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50">{pending === `rollback:${entry.config.id}` ? <LoaderCircle className="animate-spin" size={14} /> : <RotateCcw size={14} />}복원</button> : null}</Td></tr>)}{overview.history.length === 0 ? <tr><td colSpan={6} className="px-4 py-12 text-center text-slate-500">아직 DB에 저장된 변경 이력이 없습니다.</td></tr> : null}</tbody></table></div>
       </section>
       {message ? <p role="status" className={`fixed bottom-5 right-5 max-w-sm rounded-md px-4 py-3 text-sm font-medium shadow-lg ${message.kind === 'error' ? 'bg-red-700 text-white' : 'bg-emerald-700 text-white'}`}>{message.text}</p> : null}
     </div>

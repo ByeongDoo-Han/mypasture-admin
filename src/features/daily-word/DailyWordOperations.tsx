@@ -2,11 +2,11 @@
 
 import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Check, FileClock, LoaderCircle, RefreshCw, Save, X } from 'lucide-react';
-import type { DailyWordAdmin, DailyWordGenerationJob } from './dailyWordAdmin';
+import { AlertTriangle, Check, CircleCheck, FileClock, LoaderCircle, RefreshCw, Save, X } from 'lucide-react';
+import type { DailyWordAdmin, DailyWordGenerationJob, DailyWordOperationsSummary } from './dailyWordAdmin';
 
 /** 날짜별 AI 초안을 원문과 대조해 편집하고 게시·반려하는 운영 화면입니다. */
-export function DailyWordOperations({ words, jobs }: { words: DailyWordAdmin[]; jobs: DailyWordGenerationJob[] }) {
+export function DailyWordOperations({ words, jobs, summary }: { words: DailyWordAdmin[]; jobs: DailyWordGenerationJob[]; summary: DailyWordOperationsSummary }) {
   const router = useRouter();
   const [date, setDate] = useState(tomorrow());
   const [reason, setReason] = useState('다음 날 오늘의 말씀 초안을 생성합니다');
@@ -40,6 +40,8 @@ export function DailyWordOperations({ words, jobs }: { words: DailyWordAdmin[]; 
   }
 
   return <div className="space-y-8">
+    <OperationsOverview summary={summary} />
+
     <section className="border-y border-slate-200 bg-white px-4 py-5 sm:px-6">
       <div className="flex flex-wrap items-end gap-4">
         <label className="text-sm font-medium text-slate-700">대상 날짜<input type="date" value={date} onChange={(event) => setDate(event.target.value)} className="mt-2 block h-10 rounded-md border border-slate-300 px-3" /></label>
@@ -62,6 +64,39 @@ export function DailyWordOperations({ words, jobs }: { words: DailyWordAdmin[]; 
     </section>
   </div>;
 }
+
+function OperationsOverview({ summary }: { summary: DailyWordOperationsSummary }) {
+  const attention = summary.content.datesNeedingAttention;
+  const activeJobs = summary.jobs.pending + summary.jobs.processing;
+  const totalTokens = summary.usage.embeddingTokens + summary.usage.promptTokens + summary.usage.completionTokens;
+  const needsAction = summary.tomorrow.status !== 'PUBLISHED' || summary.jobs.failed > 0;
+
+  return <section aria-labelledby="daily-word-readiness">
+    <div className="flex flex-wrap items-end justify-between gap-2">
+      <div><h2 id="daily-word-readiness" className="text-base font-semibold text-slate-950">게시 준비 현황</h2><p className="mt-1 text-xs text-slate-500">{summary.from} ~ {summary.to} · {formatDate(summary.generatedAt)} 기준</p></div>
+      <p className="text-xs text-slate-500">확인 필요 {attention.length}일</p>
+    </div>
+    <div className="mt-3 grid border-y border-slate-200 bg-white sm:grid-cols-2 lg:grid-cols-4 lg:divide-x lg:divide-slate-200">
+      <ReadinessMetric label="오늘" date={summary.today.date} status={summary.today.status} />
+      <ReadinessMetric label="내일" date={summary.tomorrow.date} status={summary.tomorrow.status} />
+      <Metric label="생성 작업" value={`${activeJobs}건 활성`} detail={`완료 ${summary.jobs.completed} · 실패 ${summary.jobs.failed}`} tone={summary.jobs.failed > 0 ? 'danger' : 'default'} />
+      <Metric label="AI 사용량" value={`${totalTokens.toLocaleString('ko-KR')} 토큰`} detail={`예상 $${summary.usage.estimatedCostUsd.toFixed(6)}`} />
+    </div>
+    {needsAction ? <div role="alert" className="mt-3 flex items-start gap-2 border-l-4 border-amber-500 bg-amber-50 px-3 py-3 text-sm text-amber-950"><AlertTriangle size={17} className="mt-0.5 shrink-0" /><p>{summary.tomorrow.status !== 'PUBLISHED' ? `내일(${summary.tomorrow.date}) 게시본을 준비해야 합니다.` : '내일 게시본은 준비됐습니다.'}{summary.jobs.failed > 0 ? ` 생성 실패 ${summary.jobs.failed}건의 원인을 확인해 주세요.` : ''}</p></div> : <div className="mt-3 flex items-center gap-2 border-l-4 border-emerald-600 bg-emerald-50 px-3 py-3 text-sm text-emerald-900"><CircleCheck size={17} /><p>내일 게시본이 준비됐고 조회 범위에 실패 작업이 없습니다.</p></div>}
+    {attention.length > 0 ? <p className="mt-3 text-xs leading-5 text-slate-500">게시 확인 날짜: {attention.slice(0, 8).join(', ')}{attention.length > 8 ? ` 외 ${attention.length - 8}일` : ''}</p> : null}
+  </section>;
+}
+
+function ReadinessMetric({ label: title, date, status }: { label: string; date: string; status: 'MISSING' | 'DRAFT' | 'PUBLISHED' | 'REJECTED' }) {
+  const tone = status === 'PUBLISHED' ? 'text-emerald-800' : status === 'REJECTED' ? 'text-red-700' : 'text-amber-800';
+  return <div className="min-w-0 border-b border-slate-100 px-4 py-4 last:border-b-0 sm:[&:nth-child(3)]:border-b-0 sm:[&:nth-child(4)]:border-b-0 lg:border-b-0"><p className="text-xs font-medium text-slate-500">{title} · {date}</p><p className={`mt-2 text-lg font-bold ${tone}`}>{label(status)}</p><p className="mt-1 text-xs text-slate-500">{readinessHelp(status)}</p></div>;
+}
+
+function Metric({ label: title, value, detail, tone = 'default' }: { label: string; value: string; detail: string; tone?: 'default' | 'danger' }) {
+  return <div className="min-w-0 border-b border-slate-100 px-4 py-4 last:border-b-0 sm:[&:nth-child(3)]:border-b-0 sm:[&:nth-child(4)]:border-b-0 lg:border-b-0"><p className="text-xs font-medium text-slate-500">{title}</p><p className={`mt-2 break-words text-lg font-bold ${tone === 'danger' ? 'text-red-700' : 'text-slate-950'}`}>{value}</p><p className="mt-1 text-xs text-slate-500">{detail}</p></div>;
+}
+
+function readinessHelp(status: 'MISSING' | 'DRAFT' | 'PUBLISHED' | 'REJECTED') { return ({ MISSING: '생성 필요', DRAFT: '관리자 검수 필요', PUBLISHED: '사용자 노출 준비 완료', REJECTED: '재생성 또는 수정 필요' } as const)[status]; }
 
 function DailyWordEditor({ word, onChanged }: { word: DailyWordAdmin; onChanged: () => void }) {
   const [meditation, setMeditation] = useState(word.meditation);
@@ -104,7 +139,7 @@ function Action({ children, icon, ...props }: React.ButtonHTMLAttributes<HTMLBut
 function Status({ value }: { value: string }) { const color = value === 'PUBLISHED' || value === 'COMPLETED' ? 'bg-emerald-50 text-emerald-800' : value === 'FAILED' || value === 'REJECTED' ? 'bg-red-50 text-red-800' : 'bg-amber-50 text-amber-800'; return <span className={`inline-flex rounded-md px-2 py-1 text-xs font-semibold ${color}`}>{label(value)}</span>; }
 function Th({ children }: { children: React.ReactNode }) { return <th className="px-4 py-3 font-medium">{children}</th>; }
 function Td({ children }: { children: React.ReactNode }) { return <td className="px-4 py-3 align-top text-slate-700">{children}</td>; }
-function label(value: string) { return ({ DRAFT: '초안', PUBLISHED: '게시', REJECTED: '반려', PENDING: '대기', PROCESSING: '생성 중', COMPLETED: '완료', FAILED: '실패' } as Record<string, string>)[value] ?? value; }
+function label(value: string) { return ({ MISSING: '없음', DRAFT: '초안', PUBLISHED: '게시', REJECTED: '반려', PENDING: '대기', PROCESSING: '생성 중', COMPLETED: '완료', FAILED: '실패' } as Record<string, string>)[value] ?? value; }
 function tomorrow() {
   const date = new Date();
   date.setDate(date.getDate() + 1);

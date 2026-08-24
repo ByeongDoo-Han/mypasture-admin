@@ -10,28 +10,36 @@ const updateSchema = z.object({
   meditation: z.string().trim().min(30).max(1000), actionQuestion: z.string().trim().min(10).max(300), reason,
 });
 const reviewSchema = z.object({ operationId: z.string().uuid(), reason });
+const manualSchema = z.object({
+  operationId: z.string().uuid(), version: z.string().trim().min(1).max(20), bookCode: z.string().trim().min(2).max(20),
+  chapter: z.number().int().positive(), verse: z.number().int().positive(),
+  meditation: z.string().trim().min(30).max(1000), actionQuestion: z.string().trim().min(10).max(300),
+  replaceExisting: z.boolean(), reason,
+});
 
 /** Same-origin과 입력을 검증하고 HttpOnly 관리자 JWT로 오늘의 말씀 변경을 대리합니다. */
 export async function proxyDailyWordAction(
   request: NextRequest,
-  target: { kind: 'generate'; date: string } | { kind: 'update' | 'publish' | 'reject'; id: string },
+  target: { kind: 'generate' | 'manual'; date: string } | { kind: 'update' | 'publish' | 'reject' | 'acknowledge' | 'resolve'; id: string },
 ): Promise<NextResponse> {
   const origin = request.headers.get('origin');
   if (origin && safeHost(origin) !== request.nextUrl.host) return NextResponse.json({ message: '허용되지 않은 요청입니다.' }, { status: 403 });
   const accessToken = request.cookies.get(ACCESS_COOKIE)?.value;
   if (!accessToken) return NextResponse.json({ message: '관리자 로그인이 필요합니다.' }, { status: 401 });
-  const schema = target.kind === 'generate' ? generateSchema : target.kind === 'update' ? updateSchema : reviewSchema;
+  const schema = target.kind === 'generate' ? generateSchema : target.kind === 'manual' ? manualSchema : target.kind === 'update' ? updateSchema : reviewSchema;
   const parsed = schema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ message: '입력값과 변경 사유를 확인해 주세요.' }, { status: 400 });
 
   let path: string;
   let method: 'POST' | 'PUT' = 'POST';
-  if (target.kind === 'generate') {
+  if ('date' in target) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(target.date)) return NextResponse.json({ message: '날짜가 올바르지 않습니다.' }, { status: 400 });
-    path = `/api/v1/admin/daily-words/${target.date}/generation-jobs`;
+    path = `/api/v1/admin/daily-words/${target.date}/${target.kind === 'generate' ? 'generation-jobs' : 'manual-drafts'}`;
   } else {
     if (!z.string().uuid().safeParse(target.id).success) return NextResponse.json({ message: '대상이 올바르지 않습니다.' }, { status: 400 });
-    path = `/api/v1/admin/daily-words/${target.id}${target.kind === 'update' ? '' : `/${target.kind}`}`;
+    path = target.kind === 'acknowledge' || target.kind === 'resolve'
+      ? `/api/v1/admin/daily-words/incidents/${target.id}/${target.kind}`
+      : `/api/v1/admin/daily-words/${target.id}${target.kind === 'update' ? '' : `/${target.kind}`}`;
     method = target.kind === 'update' ? 'PUT' : 'POST';
   }
   const backend = await fetch(backendUrl(path), {

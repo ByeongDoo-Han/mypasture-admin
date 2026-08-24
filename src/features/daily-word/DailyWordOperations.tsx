@@ -2,11 +2,13 @@
 
 import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { AlertTriangle, Check, CircleCheck, FileClock, LoaderCircle, RefreshCw, Save, X } from 'lucide-react';
-import type { DailyWordAdmin, DailyWordGenerationJob, DailyWordOperationsSummary } from './dailyWordAdmin';
+import { AlertTriangle, Check, CircleCheck, Eye, FileClock, LoaderCircle, RefreshCw, Save, Search, Wrench, X } from 'lucide-react';
+import type { DailyWordAdmin, DailyWordGenerationJob, DailyWordIncident, DailyWordOperationsSummary } from './dailyWordAdmin';
+
+type BibleSearchVerse = { version: string; bookCode: string; bookName: string; chapter: number; verse: number; text: string };
 
 /** 날짜별 AI 초안을 원문과 대조해 편집하고 게시·반려하는 운영 화면입니다. */
-export function DailyWordOperations({ words, jobs, summary }: { words: DailyWordAdmin[]; jobs: DailyWordGenerationJob[]; summary: DailyWordOperationsSummary }) {
+export function DailyWordOperations({ words, jobs, summary, incidents }: { words: DailyWordAdmin[]; jobs: DailyWordGenerationJob[]; summary: DailyWordOperationsSummary; incidents: DailyWordIncident[] }) {
   const router = useRouter();
   const [date, setDate] = useState(tomorrow());
   const [reason, setReason] = useState('다음 날 오늘의 말씀 초안을 생성합니다');
@@ -41,6 +43,8 @@ export function DailyWordOperations({ words, jobs, summary }: { words: DailyWord
 
   return <div className="space-y-8">
     <OperationsOverview summary={summary} />
+    <IncidentOperations incidents={incidents} onChanged={() => router.refresh()} />
+    <ManualDraftComposer onChanged={() => router.refresh()} />
 
     <section className="border-y border-slate-200 bg-white px-4 py-5 sm:px-6">
       <div className="flex flex-wrap items-end gap-4">
@@ -79,11 +83,105 @@ function OperationsOverview({ summary }: { summary: DailyWordOperationsSummary }
     <div className="mt-3 grid border-y border-slate-200 bg-white sm:grid-cols-2 lg:grid-cols-4 lg:divide-x lg:divide-slate-200">
       <ReadinessMetric label="오늘" date={summary.today.date} status={summary.today.status} />
       <ReadinessMetric label="내일" date={summary.tomorrow.date} status={summary.tomorrow.status} />
-      <Metric label="생성 작업" value={`${activeJobs}건 활성`} detail={`완료 ${summary.jobs.completed} · 실패 ${summary.jobs.failed}`} tone={summary.jobs.failed > 0 ? 'danger' : 'default'} />
+      <Metric label="생성 작업" value={`${activeJobs}건 활성`} detail={`완료 ${summary.jobs.completed} · 실패 ${summary.jobs.failed} · 취소 ${summary.jobs.cancelled}`} tone={summary.jobs.failed > 0 ? 'danger' : 'default'} />
       <Metric label="AI 사용량" value={`${totalTokens.toLocaleString('ko-KR')} 토큰`} detail={`예상 $${summary.usage.estimatedCostUsd.toFixed(6)}`} />
     </div>
     {needsAction ? <div role="alert" className="mt-3 flex items-start gap-2 border-l-4 border-amber-500 bg-amber-50 px-3 py-3 text-sm text-amber-950"><AlertTriangle size={17} className="mt-0.5 shrink-0" /><p>{summary.tomorrow.status !== 'PUBLISHED' ? `내일(${summary.tomorrow.date}) 게시본을 준비해야 합니다.` : '내일 게시본은 준비됐습니다.'}{summary.jobs.failed > 0 ? ` 생성 실패 ${summary.jobs.failed}건의 원인을 확인해 주세요.` : ''}</p></div> : <div className="mt-3 flex items-center gap-2 border-l-4 border-emerald-600 bg-emerald-50 px-3 py-3 text-sm text-emerald-900"><CircleCheck size={17} /><p>내일 게시본이 준비됐고 조회 범위에 실패 작업이 없습니다.</p></div>}
     {attention.length > 0 ? <p className="mt-3 text-xs leading-5 text-slate-500">게시 확인 날짜: {attention.slice(0, 8).join(', ')}{attention.length > 8 ? ` 외 ${attention.length - 8}일` : ''}</p> : null}
+  </section>;
+}
+
+function IncidentOperations({ incidents, onChanged }: { incidents: DailyWordIncident[]; onChanged: () => void }) {
+  const active = incidents.filter((incident) => incident.status !== 'RESOLVED');
+  return <section aria-labelledby="daily-word-incidents">
+    <div className="mb-3 flex flex-wrap items-center justify-between gap-2"><div className="flex items-center gap-2"><AlertTriangle size={18} className={active.length > 0 ? 'text-red-600' : 'text-slate-500'} /><h2 id="daily-word-incidents" className="text-base font-semibold">운영 사건</h2></div><span className="text-xs text-slate-500">미해결 {active.length}건</span></div>
+    <div className="divide-y divide-slate-200 border-y border-slate-200 bg-white">
+      {incidents.slice(0, 20).map((incident) => <IncidentRow key={incident.id} incident={incident} onChanged={onChanged} />)}
+      {incidents.length === 0 ? <p className="px-4 py-10 text-center text-sm text-slate-500">감지된 운영 사건이 없습니다.</p> : null}
+    </div>
+  </section>;
+}
+
+function IncidentRow({ incident, onChanged }: { incident: DailyWordIncident; onChanged: () => void }) {
+  const [reason, setReason] = useState('운영 상태와 복구 필요 여부를 확인했습니다');
+  const [pending, setPending] = useState<'acknowledge' | 'resolve' | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+  const operationIds = useRef(new Map<string, string>());
+
+  async function act(action: 'acknowledge' | 'resolve') {
+    if (reason.trim().length < 5) return setMessage('조치 사유를 5자 이상 입력해 주세요.');
+    if (action === 'resolve' && !window.confirm('실제로 복구됐는지 확인하셨습니까?')) return;
+    const key = `${action}:${incident.id}:${reason.trim()}`;
+    const operationId = operationIds.current.get(key) ?? crypto.randomUUID();
+    operationIds.current.set(key, operationId);
+    setPending(action); setMessage(null);
+    const response = await fetch(`/api/admin/daily-words/incidents/${incident.id}/${action}`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ operationId, reason: reason.trim() }),
+    }).catch(() => null);
+    setPending(null);
+    if (!response?.ok) return setMessage(response ? await errorMessage(response) : '백엔드에 연결할 수 없습니다.');
+    operationIds.current.delete(key);
+    setMessage(action === 'acknowledge' ? '확인 처리했습니다.' : '해결 처리했습니다.');
+    onChanged();
+  }
+
+  return <article className="px-4 py-4 sm:px-6">
+    <div className="flex flex-wrap items-start justify-between gap-3"><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><Status value={incident.severity} /><Status value={incident.status} /><span className="text-xs font-semibold text-slate-600">{incident.date} · {label(incident.type)}</span></div><p className="mt-2 break-words text-sm leading-6 text-slate-800">{incident.message}</p><p className="mt-1 text-xs text-slate-500">최초 {formatDate(incident.firstDetectedAt)} · 최근 {formatDate(incident.lastDetectedAt)} · 감지 {incident.occurrenceCount}회</p></div></div>
+    {incident.status !== 'RESOLVED' ? <div className="mt-4 flex flex-wrap items-end gap-3"><label className="min-w-[240px] flex-1 text-sm font-medium text-slate-700">조치 사유<input value={reason} maxLength={500} onChange={(event) => setReason(event.target.value)} className="mt-2 h-10 w-full rounded-md border border-slate-300 px-3" /></label>{incident.status === 'OPEN' ? <Action disabled={pending !== null} onClick={() => act('acknowledge')} icon={pending === 'acknowledge' ? <LoaderCircle size={15} className="animate-spin" /> : <Eye size={15} />}>확인</Action> : null}<button type="button" disabled={pending !== null} onClick={() => act('resolve')} className="inline-flex h-10 items-center gap-2 rounded-md bg-emerald-700 px-4 text-sm font-semibold text-white disabled:opacity-50">{pending === 'resolve' ? <LoaderCircle size={15} className="animate-spin" /> : <Check size={15} />}해결</button></div> : incident.resolutionNote ? <p className="mt-3 text-xs text-slate-500">해결 기록: {incident.resolutionNote}</p> : null}
+    {message ? <p role="status" className="mt-3 text-sm font-medium text-slate-700">{message}</p> : null}
+  </article>;
+}
+
+function ManualDraftComposer({ onChanged }: { onChanged: () => void }) {
+  const [date, setDate] = useState(tomorrow());
+  const [keyword, setKeyword] = useState('평안');
+  const [results, setResults] = useState<BibleSearchVerse[]>([]);
+  const [selected, setSelected] = useState<BibleSearchVerse | null>(null);
+  const [meditation, setMeditation] = useState('하나님의 말씀 안에서 오늘의 상황을 돌아보고, 주어진 자리에서 믿음으로 한 걸음을 선택해 봅니다.');
+  const [question, setQuestion] = useState('오늘 이 말씀을 따라 실천할 수 있는 한 가지는 무엇인가요?');
+  const [reason, setReason] = useState('자동 생성 장애에 대비한 관리자 수동 초안입니다');
+  const [replaceExisting, setReplaceExisting] = useState(false);
+  const [pending, setPending] = useState<'search' | 'save' | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+  const operationIds = useRef(new Map<string, string>());
+
+  async function search() {
+    if (keyword.trim().length < 2) return setMessage('검색어를 2자 이상 입력해 주세요.');
+    setPending('search'); setMessage(null);
+    const response = await fetch(`/api/admin/bibles/search?version=KOR1910&keyword=${encodeURIComponent(keyword.trim())}`).catch(() => null);
+    setPending(null);
+    if (!response?.ok) return setMessage(response ? await errorMessage(response) : '검색 서버에 연결할 수 없습니다.');
+    const body = await response.json() as BibleSearchVerse[];
+    setResults(body); setSelected(body[0] ?? null);
+    if (body.length === 0) setMessage('검색된 성경 구절이 없습니다.');
+  }
+
+  async function save() {
+    if (!selected) return setMessage('먼저 성경 구절을 선택해 주세요.');
+    if (meditation.trim().length < 30 || question.trim().length < 10 || reason.trim().length < 5) return setMessage('묵상, 실천 질문, 조치 사유의 최소 길이를 확인해 주세요.');
+    if (!window.confirm(`${date} 수동 초안을 저장하시겠습니까?`)) return;
+    const fingerprint = `${date}:${selected.version}:${selected.bookCode}:${selected.chapter}:${selected.verse}:${meditation}:${question}:${replaceExisting}:${reason}`;
+    const operationId = operationIds.current.get(fingerprint) ?? crypto.randomUUID();
+    operationIds.current.set(fingerprint, operationId);
+    setPending('save'); setMessage(null);
+    const response = await fetch(`/api/admin/daily-words/manual/${date}`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ operationId, version: selected.version, bookCode: selected.bookCode, chapter: selected.chapter, verse: selected.verse, meditation: meditation.trim(), actionQuestion: question.trim(), replaceExisting, reason: reason.trim() }),
+    }).catch(() => null);
+    setPending(null);
+    if (!response?.ok) return setMessage(response ? await errorMessage(response) : '백엔드에 연결할 수 없습니다.');
+    operationIds.current.delete(fingerprint);
+    setMessage('수동 초안을 저장했습니다. 검수 목록에서 확인 후 게시해 주세요.');
+    onChanged();
+  }
+
+  return <section aria-labelledby="manual-draft" className="border-y border-slate-200 bg-white px-4 py-5 sm:px-6">
+    <div className="flex items-center gap-2"><Wrench size={18} className="text-slate-600" /><h2 id="manual-draft" className="text-base font-semibold">수동 복구 초안</h2></div>
+    <div className="mt-4 grid gap-4 lg:grid-cols-[180px_1fr_auto]"><label className="text-sm font-medium text-slate-700">대상 날짜<input type="date" value={date} onChange={(event) => setDate(event.target.value)} className="mt-2 h-10 w-full rounded-md border border-slate-300 px-3" /></label><label className="text-sm font-medium text-slate-700">성경 검색<input value={keyword} maxLength={50} onChange={(event) => setKeyword(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); void search(); } }} className="mt-2 h-10 w-full rounded-md border border-slate-300 px-3" /></label><button type="button" disabled={pending !== null} onClick={search} className="mt-auto inline-flex h-10 items-center justify-center gap-2 rounded-md border border-slate-300 px-4 text-sm font-semibold text-slate-700 disabled:opacity-50">{pending === 'search' ? <LoaderCircle size={16} className="animate-spin" /> : <Search size={16} />}검색</button></div>
+    {results.length > 0 ? <div className="mt-4 max-h-64 overflow-y-auto border-y border-slate-200 divide-y divide-slate-100">{results.map((result) => { const key = `${result.bookCode}-${result.chapter}-${result.verse}`; const active = selected?.bookCode === result.bookCode && selected.chapter === result.chapter && selected.verse === result.verse; return <button type="button" key={key} onClick={() => setSelected(result)} className={`block w-full px-3 py-3 text-left text-sm ${active ? 'bg-emerald-50 text-emerald-950' : 'bg-white text-slate-700 hover:bg-slate-50'}`}><strong>{result.bookName} {result.chapter}:{result.verse}</strong><span className="mt-1 block leading-6">{result.text}</span></button>; })}</div> : null}
+    <div className="mt-4 grid gap-4 lg:grid-cols-2"><label className="text-sm font-medium text-slate-700">묵상<textarea value={meditation} onChange={(event) => setMeditation(event.target.value)} rows={5} maxLength={1000} className="mt-2 w-full resize-y rounded-md border border-slate-300 px-3 py-2 leading-6" /></label><label className="text-sm font-medium text-slate-700">실천 질문<textarea value={question} onChange={(event) => setQuestion(event.target.value)} rows={5} maxLength={300} className="mt-2 w-full resize-y rounded-md border border-slate-300 px-3 py-2 leading-6" /></label></div>
+    <div className="mt-4 flex flex-wrap items-end gap-3"><label className="min-w-[260px] flex-1 text-sm font-medium text-slate-700">복구 사유<input value={reason} maxLength={500} onChange={(event) => setReason(event.target.value)} className="mt-2 h-10 w-full rounded-md border border-slate-300 px-3" /></label><label className="flex h-10 items-center gap-2 text-sm font-medium text-slate-700"><input type="checkbox" checked={replaceExisting} onChange={(event) => setReplaceExisting(event.target.checked)} className="h-4 w-4 accent-emerald-700" />기존 미게시 콘텐츠 교체</label><button type="button" disabled={pending !== null || !selected} onClick={save} className="inline-flex h-10 items-center gap-2 rounded-md bg-slate-900 px-4 text-sm font-semibold text-white disabled:opacity-50">{pending === 'save' ? <LoaderCircle size={16} className="animate-spin" /> : <Save size={16} />}수동 초안 저장</button></div>
+    {message ? <p role="status" className="mt-3 text-sm font-medium text-slate-700">{message}</p> : null}
   </section>;
 }
 
@@ -136,10 +234,10 @@ function DailyWordEditor({ word, onChanged }: { word: DailyWordAdmin; onChanged:
 }
 
 function Action({ children, icon, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement> & { icon: React.ReactNode }) { return <button type="button" {...props} className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-300 px-4 text-sm font-semibold text-slate-700 disabled:opacity-50">{icon}{children}</button>; }
-function Status({ value }: { value: string }) { const color = value === 'PUBLISHED' || value === 'COMPLETED' ? 'bg-emerald-50 text-emerald-800' : value === 'FAILED' || value === 'REJECTED' ? 'bg-red-50 text-red-800' : 'bg-amber-50 text-amber-800'; return <span className={`inline-flex rounded-md px-2 py-1 text-xs font-semibold ${color}`}>{label(value)}</span>; }
+function Status({ value }: { value: string }) { const color = value === 'PUBLISHED' || value === 'COMPLETED' || value === 'RESOLVED' ? 'bg-emerald-50 text-emerald-800' : value === 'FAILED' || value === 'REJECTED' || value === 'CRITICAL' ? 'bg-red-50 text-red-800' : value === 'CANCELLED' ? 'bg-slate-100 text-slate-700' : 'bg-amber-50 text-amber-800'; return <span className={`inline-flex rounded-md px-2 py-1 text-xs font-semibold ${color}`}>{label(value)}</span>; }
 function Th({ children }: { children: React.ReactNode }) { return <th className="px-4 py-3 font-medium">{children}</th>; }
 function Td({ children }: { children: React.ReactNode }) { return <td className="px-4 py-3 align-top text-slate-700">{children}</td>; }
-function label(value: string) { return ({ MISSING: '없음', DRAFT: '초안', PUBLISHED: '게시', REJECTED: '반려', PENDING: '대기', PROCESSING: '생성 중', COMPLETED: '완료', FAILED: '실패' } as Record<string, string>)[value] ?? value; }
+function label(value: string) { return ({ MISSING: '없음', DRAFT: '초안', PUBLISHED: '게시', REJECTED: '반려', PENDING: '대기', PROCESSING: '생성 중', COMPLETED: '완료', FAILED: '실패', CANCELLED: '취소', OPEN: '열림', ACKNOWLEDGED: '확인', RESOLVED: '해결', WARNING: '주의', CRITICAL: '긴급', PUBLISHING_MISSING: '게시 누락', GENERATION_FAILED: '생성 실패', GENERATION_STALLED: '생성 지연' } as Record<string, string>)[value] ?? value; }
 function tomorrow() {
   const date = new Date();
   date.setDate(date.getDate() + 1);

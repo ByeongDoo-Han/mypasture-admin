@@ -33,6 +33,26 @@ export const dailyWordIncidentSchema = z.object({
   resolutionNote: z.string().nullable(),
 });
 
+export const incidentEmailDeliverySchema = z.object({
+  id: z.string().uuid(), incidentId: z.string().uuid(), incidentDate: z.string(),
+  incidentType: z.enum(['PUBLISHING_MISSING', 'GENERATION_FAILED', 'GENERATION_STALLED']),
+  incidentSeverity: z.enum(['WARNING', 'CRITICAL']), notificationVersion: z.number().int().positive(),
+  maskedRecipient: z.string(), status: z.enum(['PENDING', 'PROCESSING', 'RETRY_WAIT', 'SENT', 'DEAD']),
+  attemptCount: z.number().int().nonnegative(), nextAttemptAt: z.string(), errorSummary: z.string().nullable(),
+  sentAt: z.string().nullable(), createdAt: z.string(), updatedAt: z.string(), requeueAllowed: z.boolean(),
+});
+
+export const incidentEmailOperationsSchema = z.object({
+  from: z.string(), to: z.string(), generatedAt: z.string(),
+  summary: z.object({
+    pending: z.number().int().nonnegative(), processing: z.number().int().nonnegative(),
+    retryWait: z.number().int().nonnegative(), sent: z.number().int().nonnegative(), dead: z.number().int().nonnegative(),
+  }),
+  deliveries: z.array(incidentEmailDeliverySchema), page: z.number().int().nonnegative(),
+  size: z.number().int().positive(), totalElements: z.number().int().nonnegative(),
+  totalPages: z.number().int().nonnegative(), hasNext: z.boolean(),
+});
+
 const readinessSchema = z.object({
   date: z.string(), status: z.enum(['MISSING', 'DRAFT', 'PUBLISHED', 'REJECTED']), publishedAt: z.string().nullable(),
 });
@@ -60,27 +80,32 @@ export type DailyWordAdmin = z.infer<typeof dailyWordSchema>;
 export type DailyWordGenerationJob = z.infer<typeof generationJobSchema>;
 export type DailyWordIncident = z.infer<typeof dailyWordIncidentSchema>;
 export type DailyWordOperationsSummary = z.infer<typeof operationsSummarySchema>;
+export type IncidentEmailDelivery = z.infer<typeof incidentEmailDeliverySchema>;
+export type IncidentEmailOperations = z.infer<typeof incidentEmailOperationsSchema>;
 
 /** 관리자 JWT로 오늘의 말씀 검수 목록과 최근 생성 작업을 서버에서 조회하고 검증합니다. */
 export async function getDailyWordOperations(): Promise<{
   words: DailyWordAdmin[];
   jobs: DailyWordGenerationJob[];
   incidents: DailyWordIncident[];
+  emailOperations: IncidentEmailOperations;
   summary: DailyWordOperationsSummary;
 }> {
   const { accessToken } = await requireAdminSession();
   const headers = { Authorization: `Bearer ${accessToken}` };
-  const [wordsResponse, jobsResponse, summaryResponse, incidentsResponse] = await Promise.all([
+  const [wordsResponse, jobsResponse, summaryResponse, incidentsResponse, emailOperationsResponse] = await Promise.all([
     fetch(backendUrl('/api/v1/admin/daily-words'), { headers, cache: 'no-store', signal: AbortSignal.timeout(7_000) }),
     fetch(backendUrl('/api/v1/admin/daily-words/generation-jobs'), { headers, cache: 'no-store', signal: AbortSignal.timeout(7_000) }),
     fetch(backendUrl('/api/v1/admin/daily-words/operations-summary'), { headers, cache: 'no-store', signal: AbortSignal.timeout(7_000) }),
     fetch(backendUrl('/api/v1/admin/daily-words/incidents'), { headers, cache: 'no-store', signal: AbortSignal.timeout(7_000) }),
-  ]).catch(() => [null, null, null, null] as const);
-  if (!wordsResponse?.ok || !jobsResponse?.ok || !summaryResponse?.ok || !incidentsResponse?.ok) throw new Error('오늘의 말씀 운영 데이터를 불러오지 못했습니다.');
+    fetch(backendUrl('/api/v1/admin/daily-words/incident-email-deliveries?page=0&size=20'), { headers, cache: 'no-store', signal: AbortSignal.timeout(7_000) }),
+  ]).catch(() => [null, null, null, null, null] as const);
+  if (!wordsResponse?.ok || !jobsResponse?.ok || !summaryResponse?.ok || !incidentsResponse?.ok || !emailOperationsResponse?.ok) throw new Error('오늘의 말씀 운영 데이터를 불러오지 못했습니다.');
   const words = z.array(dailyWordSchema).safeParse(await wordsResponse.json().catch(() => null));
   const jobs = z.array(generationJobSchema).safeParse(await jobsResponse.json().catch(() => null));
   const summary = operationsSummarySchema.safeParse(await summaryResponse.json().catch(() => null));
   const incidents = z.array(dailyWordIncidentSchema).safeParse(await incidentsResponse.json().catch(() => null));
-  if (!words.success || !jobs.success || !summary.success || !incidents.success) throw new Error('오늘의 말씀 API 응답 형식이 올바르지 않습니다.');
-  return { words: words.data, jobs: jobs.data, summary: summary.data, incidents: incidents.data };
+  const emailOperations = incidentEmailOperationsSchema.safeParse(await emailOperationsResponse.json().catch(() => null));
+  if (!words.success || !jobs.success || !summary.success || !incidents.success || !emailOperations.success) throw new Error('오늘의 말씀 API 응답 형식이 올바르지 않습니다.');
+  return { words: words.data, jobs: jobs.data, summary: summary.data, incidents: incidents.data, emailOperations: emailOperations.data };
 }

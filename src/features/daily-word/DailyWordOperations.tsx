@@ -2,13 +2,13 @@
 
 import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { AlertTriangle, Check, CircleCheck, Eye, FileClock, LoaderCircle, RefreshCw, Save, Search, Wrench, X } from 'lucide-react';
-import type { DailyWordAdmin, DailyWordGenerationJob, DailyWordIncident, DailyWordOperationsSummary } from './dailyWordAdmin';
+import { AlertTriangle, Check, ChevronLeft, ChevronRight, CircleCheck, Eye, FileClock, LoaderCircle, MailWarning, RefreshCw, RotateCcw, Save, Search, Wrench, X } from 'lucide-react';
+import type { DailyWordAdmin, DailyWordGenerationJob, DailyWordIncident, DailyWordOperationsSummary, IncidentEmailDelivery, IncidentEmailOperations } from './dailyWordAdmin';
 
 type BibleSearchVerse = { version: string; bookCode: string; bookName: string; chapter: number; verse: number; text: string };
 
 /** 날짜별 AI 초안을 원문과 대조해 편집하고 게시·반려하는 운영 화면입니다. */
-export function DailyWordOperations({ words, jobs, summary, incidents }: { words: DailyWordAdmin[]; jobs: DailyWordGenerationJob[]; summary: DailyWordOperationsSummary; incidents: DailyWordIncident[] }) {
+export function DailyWordOperations({ words, jobs, summary, incidents, emailOperations }: { words: DailyWordAdmin[]; jobs: DailyWordGenerationJob[]; summary: DailyWordOperationsSummary; incidents: DailyWordIncident[]; emailOperations: IncidentEmailOperations }) {
   const router = useRouter();
   const [date, setDate] = useState(tomorrow());
   const [reason, setReason] = useState('다음 날 오늘의 말씀 초안을 생성합니다');
@@ -44,6 +44,7 @@ export function DailyWordOperations({ words, jobs, summary, incidents }: { words
   return <div className="space-y-8">
     <OperationsOverview summary={summary} />
     <IncidentOperations incidents={incidents} onChanged={() => router.refresh()} />
+    <EmailDeliveryOperations initial={emailOperations} />
     <ManualDraftComposer onChanged={() => router.refresh()} />
 
     <section className="border-y border-slate-200 bg-white px-4 py-5 sm:px-6">
@@ -67,6 +68,87 @@ export function DailyWordOperations({ words, jobs, summary, incidents }: { words
       {words.length === 0 ? <div className="border-y border-slate-200 bg-white px-4 py-12 text-center text-sm text-slate-500">조회 기간에 생성된 오늘의 말씀이 없습니다.</div> : null}
     </section>
   </div>;
+}
+
+/** 운영 사건 알림 메일의 outbox 상태를 조회하고 실패 건을 감사 가능한 방식으로 재처리합니다. */
+function EmailDeliveryOperations({ initial }: { initial: IncidentEmailOperations }) {
+  const [operations, setOperations] = useState(initial);
+  const [status, setStatus] = useState<'' | IncidentEmailDelivery['status']>('');
+  const [from, setFrom] = useState(inputDate(initial.from));
+  const [to, setTo] = useState(inputDate(initial.to));
+  const [reason, setReason] = useState('발송 실패 원인을 확인하고 재처리를 요청합니다');
+  const [pending, setPending] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+  const operationIds = useRef(new Map<string, string>());
+
+  async function load(page = 0) {
+    if (!from || !to || from > to) return setMessage('조회 시작일은 종료일보다 늦을 수 없습니다.');
+    setPending('load'); setMessage(null);
+    const query = new URLSearchParams({ from: startOfDayIso(from), to: nextDayIso(to), page: String(page), size: String(operations.size) });
+    if (status) query.set('status', status);
+    const response = await fetch(`/api/admin/daily-words/email-deliveries?${query}`).catch(() => null);
+    setPending(null);
+    if (!response?.ok) return setMessage(response ? await errorMessage(response) : '백엔드에 연결할 수 없습니다.');
+    setOperations(await response.json() as IncidentEmailOperations);
+  }
+
+  async function requeue(delivery: IncidentEmailDelivery) {
+    if (reason.trim().length < 5) return setMessage('재처리 사유를 5자 이상 입력해 주세요.');
+    if (!window.confirm(`${delivery.maskedRecipient} 발송 작업을 다시 대기열에 넣으시겠습니까?`)) return;
+    const key = `${delivery.id}:${reason.trim()}`;
+    const operationId = operationIds.current.get(key) ?? crypto.randomUUID();
+    operationIds.current.set(key, operationId);
+    setPending(delivery.id); setMessage(null);
+    const response = await fetch(`/api/admin/daily-words/email-deliveries/${delivery.id}/requeue`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ operationId, reason: reason.trim() }),
+    }).catch(() => null);
+    setPending(null);
+    if (!response?.ok) return setMessage(response ? await errorMessage(response) : '백엔드에 연결할 수 없습니다.');
+    operationIds.current.delete(key);
+    setMessage('발송 작업을 대기 상태로 되돌렸습니다. 기존 시도 횟수와 오류 기록은 유지됩니다.');
+    await load(operations.page);
+  }
+
+  const summary = operations.summary;
+  return <section aria-labelledby="incident-email-deliveries">
+    <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
+      <div><div className="flex items-center gap-2"><MailWarning size={18} className={summary.dead > 0 ? 'text-red-600' : 'text-slate-500'} /><h2 id="incident-email-deliveries" className="text-base font-semibold">운영 사건 이메일</h2></div><p className="mt-1 text-xs text-slate-500">수신 주소는 마스킹되며 오류 메시지의 토큰과 비밀번호는 저장 전에 제거됩니다.</p></div>
+      <span className="text-xs text-slate-500">총 {operations.totalElements.toLocaleString('ko-KR')}건 · {formatDate(operations.generatedAt)} 기준</span>
+    </div>
+
+    <div className="grid border-y border-slate-200 bg-white sm:grid-cols-5 sm:divide-x sm:divide-slate-200">
+      <EmailMetric label="대기" value={summary.pending} />
+      <EmailMetric label="처리 중" value={summary.processing} />
+      <EmailMetric label="재시도 대기" value={summary.retryWait} tone={summary.retryWait > 0 ? 'warning' : 'default'} />
+      <EmailMetric label="발송 완료" value={summary.sent} tone="success" />
+      <EmailMetric label="최종 실패" value={summary.dead} tone={summary.dead > 0 ? 'danger' : 'default'} />
+    </div>
+
+    <div className="mt-4 grid items-end gap-3 border-y border-slate-200 bg-white px-4 py-4 sm:grid-cols-2 lg:grid-cols-[150px_150px_180px_1fr_auto]">
+      <label className="text-sm font-medium text-slate-700">시작일<input type="date" value={from} onChange={(event) => setFrom(event.target.value)} className="mt-2 h-10 w-full rounded-md border border-slate-300 px-3" /></label>
+      <label className="text-sm font-medium text-slate-700">종료일<input type="date" value={to} onChange={(event) => setTo(event.target.value)} className="mt-2 h-10 w-full rounded-md border border-slate-300 px-3" /></label>
+      <label className="text-sm font-medium text-slate-700">상태<select value={status} onChange={(event) => setStatus(event.target.value as '' | IncidentEmailDelivery['status'])} className="mt-2 h-10 w-full rounded-md border border-slate-300 bg-white px-3"><option value="">전체</option>{(['PENDING', 'PROCESSING', 'RETRY_WAIT', 'SENT', 'DEAD'] as const).map((value) => <option key={value} value={value}>{label(value)}</option>)}</select></label>
+      <label className="text-sm font-medium text-slate-700">재처리 사유<input value={reason} maxLength={500} onChange={(event) => setReason(event.target.value)} className="mt-2 h-10 w-full rounded-md border border-slate-300 px-3" /></label>
+      <button type="button" disabled={pending !== null} onClick={() => void load(0)} className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-slate-300 px-4 text-sm font-semibold text-slate-700 disabled:opacity-50">{pending === 'load' ? <LoaderCircle size={16} className="animate-spin" /> : <RefreshCw size={16} />}조회</button>
+    </div>
+
+    {summary.dead > 0 ? <div role="alert" className="mt-3 flex items-start gap-2 border-l-4 border-red-600 bg-red-50 px-3 py-3 text-sm text-red-900"><AlertTriangle size={17} className="mt-0.5 shrink-0" /><p>최종 실패 {summary.dead}건이 있습니다. 외부 메일 설정과 오류 요약을 확인한 뒤 필요한 건만 재처리해 주세요.</p></div> : null}
+
+    <div className="mt-4 overflow-x-auto border-y border-slate-200 bg-white"><table className="w-full min-w-[1080px] text-left text-sm"><thead className="bg-slate-50 text-xs text-slate-500"><tr><Th>상태</Th><Th>운영 사건</Th><Th>수신자</Th><Th>시도</Th><Th>다음 처리 / 완료</Th><Th>오류 요약</Th><Th>조치</Th></tr></thead><tbody className="divide-y divide-slate-100">{operations.deliveries.map((delivery) => <tr key={delivery.id}><Td><Status value={delivery.status} /></Td><Td><span className="font-semibold text-slate-800">{delivery.incidentDate} · {label(delivery.incidentType)}</span><span className="mt-1 block text-xs text-slate-500">{label(delivery.incidentSeverity)} · 알림 v{delivery.notificationVersion}</span></Td><Td>{delivery.maskedRecipient}</Td><Td>{delivery.attemptCount}회</Td><Td>{formatDate(delivery.sentAt ?? delivery.nextAttemptAt)}</Td><Td><span className="block max-w-[280px] break-words text-xs leading-5">{delivery.errorSummary ?? '-'}</span></Td><Td>{delivery.requeueAllowed ? <button type="button" disabled={pending !== null} onClick={() => void requeue(delivery)} className="inline-flex h-9 items-center gap-2 rounded-md border border-slate-300 px-3 text-xs font-semibold text-slate-700 disabled:opacity-50">{pending === delivery.id ? <LoaderCircle size={14} className="animate-spin" /> : <RotateCcw size={14} />}재처리</button> : <span className="text-xs text-slate-400">-</span>}</Td></tr>)}{operations.deliveries.length === 0 ? <tr><td colSpan={7} className="px-4 py-10 text-center text-slate-500">조건에 맞는 이메일 발송 작업이 없습니다.</td></tr> : null}</tbody></table></div>
+
+    <div className="mt-3 flex items-center justify-between gap-3">
+      <button type="button" aria-label="이전 페이지" disabled={pending !== null || operations.page === 0} onClick={() => void load(operations.page - 1)} className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-slate-300 text-slate-700 disabled:opacity-40"><ChevronLeft size={17} /></button>
+      <p className="text-xs text-slate-500">{operations.totalPages === 0 ? 0 : operations.page + 1} / {operations.totalPages} 페이지</p>
+      <button type="button" aria-label="다음 페이지" disabled={pending !== null || !operations.hasNext} onClick={() => void load(operations.page + 1)} className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-slate-300 text-slate-700 disabled:opacity-40"><ChevronRight size={17} /></button>
+    </div>
+    {message ? <p role="status" className="mt-3 text-sm font-medium text-slate-700">{message}</p> : null}
+  </section>;
+}
+
+function EmailMetric({ label: title, value, tone = 'default' }: { label: string; value: number; tone?: 'default' | 'warning' | 'success' | 'danger' }) {
+  const color = tone === 'danger' ? 'text-red-700' : tone === 'warning' ? 'text-amber-800' : tone === 'success' ? 'text-emerald-800' : 'text-slate-950';
+  return <div className="border-b border-slate-100 px-4 py-3 last:border-b-0 sm:border-b-0"><p className="text-xs text-slate-500">{title}</p><p className={`mt-1 text-lg font-bold ${color}`}>{value.toLocaleString('ko-KR')}건</p></div>;
 }
 
 function OperationsOverview({ summary }: { summary: DailyWordOperationsSummary }) {
@@ -234,14 +316,17 @@ function DailyWordEditor({ word, onChanged }: { word: DailyWordAdmin; onChanged:
 }
 
 function Action({ children, icon, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement> & { icon: React.ReactNode }) { return <button type="button" {...props} className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-300 px-4 text-sm font-semibold text-slate-700 disabled:opacity-50">{icon}{children}</button>; }
-function Status({ value }: { value: string }) { const color = value === 'PUBLISHED' || value === 'COMPLETED' || value === 'RESOLVED' ? 'bg-emerald-50 text-emerald-800' : value === 'FAILED' || value === 'REJECTED' || value === 'CRITICAL' ? 'bg-red-50 text-red-800' : value === 'CANCELLED' ? 'bg-slate-100 text-slate-700' : 'bg-amber-50 text-amber-800'; return <span className={`inline-flex rounded-md px-2 py-1 text-xs font-semibold ${color}`}>{label(value)}</span>; }
+function Status({ value }: { value: string }) { const color = value === 'PUBLISHED' || value === 'COMPLETED' || value === 'RESOLVED' || value === 'SENT' ? 'bg-emerald-50 text-emerald-800' : value === 'FAILED' || value === 'REJECTED' || value === 'CRITICAL' || value === 'DEAD' ? 'bg-red-50 text-red-800' : value === 'CANCELLED' ? 'bg-slate-100 text-slate-700' : 'bg-amber-50 text-amber-800'; return <span className={`inline-flex rounded-md px-2 py-1 text-xs font-semibold ${color}`}>{label(value)}</span>; }
 function Th({ children }: { children: React.ReactNode }) { return <th className="px-4 py-3 font-medium">{children}</th>; }
 function Td({ children }: { children: React.ReactNode }) { return <td className="px-4 py-3 align-top text-slate-700">{children}</td>; }
-function label(value: string) { return ({ MISSING: '없음', DRAFT: '초안', PUBLISHED: '게시', REJECTED: '반려', PENDING: '대기', PROCESSING: '생성 중', COMPLETED: '완료', FAILED: '실패', CANCELLED: '취소', OPEN: '열림', ACKNOWLEDGED: '확인', RESOLVED: '해결', WARNING: '주의', CRITICAL: '긴급', PUBLISHING_MISSING: '게시 누락', GENERATION_FAILED: '생성 실패', GENERATION_STALLED: '생성 지연' } as Record<string, string>)[value] ?? value; }
+function label(value: string) { return ({ MISSING: '없음', DRAFT: '초안', PUBLISHED: '게시', REJECTED: '반려', PENDING: '대기', PROCESSING: '처리 중', RETRY_WAIT: '재시도 대기', SENT: '발송 완료', DEAD: '최종 실패', COMPLETED: '완료', FAILED: '실패', CANCELLED: '취소', OPEN: '열림', ACKNOWLEDGED: '확인', RESOLVED: '해결', WARNING: '주의', CRITICAL: '긴급', PUBLISHING_MISSING: '게시 누락', GENERATION_FAILED: '생성 실패', GENERATION_STALLED: '생성 지연' } as Record<string, string>)[value] ?? value; }
 function tomorrow() {
   const date = new Date();
   date.setDate(date.getDate() + 1);
   return [date.getFullYear(), String(date.getMonth() + 1).padStart(2, '0'), String(date.getDate()).padStart(2, '0')].join('-');
 }
 function formatDate(value: string) { return new Date(value).toLocaleString('ko-KR'); }
+function startOfDayIso(value: string) { return new Date(`${value}T00:00:00`).toISOString(); }
+function nextDayIso(value: string) { const date = new Date(`${value}T00:00:00`); date.setDate(date.getDate() + 1); return date.toISOString(); }
+function inputDate(value: string) { const date = new Date(value); return [date.getFullYear(), String(date.getMonth() + 1).padStart(2, '0'), String(date.getDate()).padStart(2, '0')].join('-'); }
 async function errorMessage(response: Response) { const body = await response.json().catch(() => null) as { message?: string } | null; return body?.message ?? '요청을 처리하지 못했습니다.'; }

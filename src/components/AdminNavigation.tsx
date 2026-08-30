@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { BarChart3, BellRing, BrainCircuit, CalendarCheck, ListChecks } from 'lucide-react';
+import { BarChart3, BellRing, BrainCircuit, CalendarCheck, ListChecks, TicketPercent } from 'lucide-react';
 
 const items = [
   { href: '/', label: '운영 현황', icon: BarChart3 },
@@ -10,6 +10,7 @@ const items = [
   { href: '/daily-words', label: '오늘의 말씀', icon: CalendarCheck },
   { href: '/notifications', label: '알림 운영', icon: BellRing },
   { href: '/ai-models', label: 'AI 모델', icon: BrainCircuit },
+  { href: '/coupons', label: '체험 쿠폰', icon: TicketPercent },
 ];
 
 /** 현재 경로를 표시하며 실제 구현된 관리자 화면만 노출하는 내비게이션입니다. */

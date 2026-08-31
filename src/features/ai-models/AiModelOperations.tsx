@@ -12,6 +12,7 @@ export function AiModelOperations({ overview }: { overview: AiRuntimeOverview })
   const router = useRouter();
   const current = overview.current;
   const isDailyWord = current.useCase === 'DAILY_WORD';
+  const isBibleCommentary = current.useCase === 'BIBLE_COMMENTARY';
   const [evaluationEnabled, setEvaluationEnabled] = useState(isDailyWord ? false : current.evaluationEnabled);
   const [reason, setReason] = useState('');
   const [rollbackReason, setRollbackReason] = useState('');
@@ -87,7 +88,7 @@ export function AiModelOperations({ overview }: { overview: AiRuntimeOverview })
       <form onSubmit={activate} className="border-y border-slate-200 bg-white px-4 py-6 sm:px-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div><h2 className="text-base font-semibold text-slate-950">활성 설정</h2><p className="mt-1 text-sm text-slate-500">버전 {current.version} · {current.source === 'ENVIRONMENT' ? '환경 변수 기본값' : 'DB 활성 버전'}</p></div>
-          <span className="rounded-md bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-800">{isDailyWord ? '오늘의 말씀' : 'AI 목자'}</span>
+          <span className="rounded-md bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-800">{useCaseLabel(current.useCase)}</span>
         </div>
         <div className="mt-6 grid gap-5 lg:grid-cols-2">
           <SelectField label="생성 모델" name="generatorModel" defaultValue={current.generatorModel}>
@@ -106,7 +107,7 @@ export function AiModelOperations({ overview }: { overview: AiRuntimeOverview })
         {!currentGeneratorSupported || (!isDailyWord && !currentEvaluatorSupported) ? <p role="alert" className="mt-4 border-l-4 border-amber-500 bg-amber-50 px-3 py-2 text-sm text-amber-900">현재 설정에 허용 목록 밖의 모델이 있습니다. 지원되는 모델을 선택해야 새 버전을 활성화할 수 있습니다.</p> : null}
         {isDailyWord ? <p className="mt-5 border-y border-slate-100 py-3 text-sm text-slate-600">오늘의 말씀은 생성된 초안을 관리자 검수 후 게시하므로 자동 평가 모델과 자동 수정은 사용하지 않습니다.</p> : <label className="mt-5 flex min-h-11 items-center gap-3 border-y border-slate-100 py-3 text-sm font-medium text-slate-800">
           <input type="checkbox" checked={evaluationEnabled} onChange={(event) => setEvaluationEnabled(event.target.checked)} className="h-4 w-4 accent-emerald-700" />
-          생성 답변을 평가한 뒤 최종 답변만 전송
+          {isBibleCommentary ? '생성 초안을 평가하고 기준 미달이면 제한 횟수만 재작성' : '생성 답변을 평가한 뒤 최종 답변만 전송'}
         </label>}
         <label className="mt-5 block text-sm font-medium text-slate-700">변경 사유
           <textarea value={reason} onChange={(event) => setReason(event.target.value)} maxLength={500} rows={3} className="mt-2 w-full resize-y rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100" placeholder="운영 지표와 검증 결과를 포함한 변경 사유" />
@@ -135,3 +136,8 @@ function ReasoningOptions() { return <><option value="NONE">없음</option><opti
 function Th({ children, right = false }: { children: React.ReactNode; right?: boolean }) { return <th className={`px-4 py-3 font-medium ${right ? 'text-right' : ''}`}>{children}</th>; }
 function Td({ children, right = false }: { children: React.ReactNode; right?: boolean }) { return <td className={`px-4 py-4 align-top text-slate-700 ${right ? 'text-right tabular-nums' : ''}`}>{children}</td>; }
 function roleLabel(role: 'GENERATOR' | 'EVALUATOR') { return role === 'GENERATOR' ? '생성' : '평가'; }
+function useCaseLabel(useCase: 'AI_PASTOR' | 'DAILY_WORD' | 'BIBLE_COMMENTARY') {
+  if (useCase === 'DAILY_WORD') return '오늘의 말씀';
+  if (useCase === 'BIBLE_COMMENTARY') return '장별 해설';
+  return 'AI 목자';
+}

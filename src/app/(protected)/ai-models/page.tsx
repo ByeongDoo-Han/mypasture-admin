@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { AiModelOperations } from '../../../features/ai-models/AiModelOperations';
 import { aiUseCaseSchema, getAiRuntimeOverview, type AiUseCase } from '../../../features/ai-models/aiModelAdmin';
 
-/** AI 목자와 오늘의 말씀 모델을 용도별 버전으로 분리해 운영하는 관리자 화면입니다. */
+/** AI 목자, 오늘의 말씀과 장별 해설 모델을 용도별 버전으로 분리해 운영하는 관리자 화면입니다. */
 export default async function AiModelsPage({ searchParams }: { searchParams: Promise<{ useCase?: string | string[] }> }) {
   const rawUseCase = (await searchParams).useCase;
   const parsedUseCase = aiUseCaseSchema.safeParse(Array.isArray(rawUseCase) ? rawUseCase[0] : rawUseCase);
@@ -18,6 +18,7 @@ export default async function AiModelsPage({ searchParams }: { searchParams: Pro
       <nav aria-label="AI 사용 목적" className="mb-6 flex border-b border-slate-200">
         <UseCaseTab href="/ai-models?useCase=AI_PASTOR" active={useCase === 'AI_PASTOR'}>AI 목자</UseCaseTab>
         <UseCaseTab href="/ai-models?useCase=DAILY_WORD" active={useCase === 'DAILY_WORD'}>오늘의 말씀</UseCaseTab>
+        <UseCaseTab href="/ai-models?useCase=BIBLE_COMMENTARY" active={useCase === 'BIBLE_COMMENTARY'}>장별 해설</UseCaseTab>
       </nav>
       {overview ? <AiModelOperations overview={overview} /> : <div role="alert" className="border-l-4 border-amber-500 bg-amber-50 px-4 py-3 text-sm text-amber-900">AI 설정을 불러오지 못했습니다. 백엔드 연결과 관리자 권한을 확인해 주세요.</div>}
     </div>

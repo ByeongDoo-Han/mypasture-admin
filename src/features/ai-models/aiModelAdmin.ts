@@ -5,7 +5,7 @@ import { requireAdminSession } from '../../lib/adminSession';
 
 export const modelRoleSchema = z.enum(['GENERATOR', 'EVALUATOR']);
 export const reasoningSchema = z.enum(['NONE', 'LOW', 'MEDIUM', 'HIGH', 'XHIGH', 'MAX']);
-export const aiUseCaseSchema = z.enum(['AI_PASTOR', 'DAILY_WORD']);
+export const aiUseCaseSchema = z.enum(['AI_PASTOR', 'DAILY_WORD', 'BIBLE_COMMENTARY']);
 
 export const runtimeConfigSchema = z.object({
   id: z.string().uuid().nullable(), useCase: aiUseCaseSchema, version: z.number(),

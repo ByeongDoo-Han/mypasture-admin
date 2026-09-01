@@ -8,7 +8,7 @@ export const couponCampaignSchema = z.object({
   codeType: z.enum(['SHARED', 'UNIQUE']), status: z.enum(['ACTIVE', 'INACTIVE']),
   redeemStartsAt: z.string(), redeemEndsAt: z.string(),
   maxRedemptions: z.number().int().positive(), redeemedCount: z.number().int().nonnegative(),
-  entitlementDurationDays: z.number().int().positive(), aiDailyLimit: z.number().int().positive(), createdAt: z.string(),
+  rewardType: z.literal('PASTURE_DECORATION_ITEM'), rewardItemCode: z.string(), rewardQuantity: z.number().int().positive(), createdAt: z.string(),
 });
 export const couponCampaignPageSchema = z.object({
   items: z.array(couponCampaignSchema), page: z.number().int().nonnegative(), size: z.number().int().positive(),
@@ -18,7 +18,7 @@ export const createdCouponCampaignSchema = z.object({ campaign: couponCampaignSc
 export type CouponCampaign = z.infer<typeof couponCampaignSchema>;
 export type CouponCampaignPage = z.infer<typeof couponCampaignPageSchema>;
 
-/** 관리자 JWT를 서버에 유지하며 쿠폰 캠페인 운영 응답을 Zod 계약으로 검증합니다. */
+/** 관리자 JWT를 서버에 유지하며 이벤트 보상 캠페인 응답을 Zod 계약으로 검증합니다. */
 export async function getCouponCampaigns(status?: 'ACTIVE' | 'INACTIVE', page = 0): Promise<CouponCampaignPage> {
   const { accessToken } = await requireAdminSession();
   const query = new URLSearchParams({ page: String(page), size: '20' });

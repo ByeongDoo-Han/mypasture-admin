@@ -8,8 +8,9 @@ const createSchema = z.object({
   operationId: z.string().uuid(), name: z.string().trim().min(2).max(100), eligibilityKey: z.string().trim().min(2).max(80),
   codeType: z.enum(['SHARED', 'UNIQUE']), redeemStartsAt: z.string().datetime(), redeemEndsAt: z.string().datetime(),
   maxRedemptions: z.number().int().min(1).max(1_000_000).nullable(), codeCount: z.number().int().min(1).max(1_000).nullable(),
-  sharedCode: z.string().trim().min(8).max(40).nullable(), entitlementDurationDays: z.number().int().min(1).max(90),
-  aiDailyLimit: z.number().int().min(1).max(500), reason: z.string().trim().min(5).max(500),
+  sharedCode: z.string().trim().min(8).max(40).nullable(), rewardType: z.literal('PASTURE_DECORATION_ITEM'),
+  rewardItemCode: z.string().trim().min(2).max(80).regex(/^[A-Za-z0-9_-]+$/), rewardQuantity: z.number().int().min(1).max(100),
+  reason: z.string().trim().min(5).max(500),
 }).superRefine((value, context) => {
   if (new Date(value.redeemEndsAt) <= new Date(value.redeemStartsAt)) context.addIssue({ code: 'custom', message: '종료 시각은 시작 시각보다 뒤여야 합니다.' });
   if (value.codeType === 'SHARED' && value.maxRedemptions === null) context.addIssue({ code: 'custom', message: '공유 쿠폰 한도가 필요합니다.' });

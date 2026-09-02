@@ -1,0 +1,176 @@
+name: Deploy Admin to GCP
+
+on:
+  workflow_run:
+    workflows:
+      - Admin CI
+    branches:
+      - main
+    types:
+      - completed
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Deployment environment
+        required: true
+        type: choice
+        options:
+          - staging
+          - prod
+      mode:
+        description: Deploy the service or only push the first image
+        required: true
+        default: deploy
+        type: choice
+        options:
+          - deploy
+          - image-only
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: admin-gcp-deploy-${{ github.event_name == 'workflow_run' && 'staging' || inputs.environment }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: deploy-${{ github.event_name == 'workflow_run' && 'staging' || inputs.environment }}
+    if: >-
+      (github.event_name == 'workflow_run' && vars.GCP_DEPLOY_ENABLED == 'true' &&
+       github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push') ||
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: ${{ github.event_name == 'workflow_run' && 'staging' || inputs.environment }}
+    env:
+      DEPLOY_ENVIRONMENT: ${{ github.event_name == 'workflow_run' && 'staging' || inputs.environment }}
+      DEPLOY_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
+      PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+      REGION: ${{ vars.GCP_REGION }}
+      REPOSITORY: ${{ vars.GCP_ARTIFACT_REPOSITORY }}
+      DEPLOY_MODE: ${{ github.event_name == 'workflow_dispatch' && inputs.mode || 'deploy' }}
+
+    steps:
+      - name: Checkout verified commit
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ env.DEPLOY_SHA }}
+
+      - name: Validate deployment variables
+        env:
+          WIF_PROVIDER: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          DEPLOY_SERVICE_ACCOUNT: ${{ vars.GCP_DEPLOY_SERVICE_ACCOUNT }}
+        run: |
+          set -euo pipefail
+          for variable in PROJECT_ID REGION REPOSITORY WIF_PROVIDER DEPLOY_SERVICE_ACCOUNT; do
+            if [ -z "${!variable:-}" ]; then
+              echo "Missing GitHub Environment variable: ${variable}" >&2
+              exit 1
+            fi
+          done
+
+      - name: Authenticate to Google Cloud with OIDC
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOY_SERVICE_ACCOUNT }}
+
+      - name: Set up Google Cloud CLI
+        uses: google-github-actions/setup-gcloud@v3
+
+      - name: Configure Artifact Registry
+        run: gcloud auth configure-docker "${REGION}-docker.pkg.dev" --quiet
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push immutable image
+        id: image
+        run: |
+          set -euo pipefail
+          IMAGE_BASE="${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPOSITORY}/admin"
+          docker buildx build \
+            --platform linux/amd64 \
+            --tag "${IMAGE_BASE}:${DEPLOY_SHA}" \
+            --metadata-file "${RUNNER_TEMP}/build-metadata.json" \
+            --push .
+          DIGEST=$(jq -er '."containerimage.digest"' "${RUNNER_TEMP}/build-metadata.json")
+          echo "uri=${IMAGE_BASE}@${DIGEST}" >> "${GITHUB_OUTPUT}"
+
+      - name: Confirm provisioned Cloud Run service
+        if: ${{ env.DEPLOY_MODE == 'deploy' }}
+        run: |
+          set -euo pipefail
+          SERVICE="mypasture-${DEPLOY_ENVIRONMENT}-admin"
+          if ! gcloud run services describe "${SERVICE}" \
+            --project "${PROJECT_ID}" --region "${REGION}" >/dev/null 2>&1; then
+            echo "${SERVICE} does not exist yet." >&2
+            echo "Use the image URI from this run as admin_container_image, apply Terraform, then rerun this workflow." >&2
+            exit 1
+          fi
+
+      - name: Capture currently deployed image
+        if: ${{ env.DEPLOY_MODE == 'deploy' }}
+        id: previous
+        run: |
+          set -euo pipefail
+          SERVICE="mypasture-${DEPLOY_ENVIRONMENT}-admin"
+          IMAGE=$(gcloud run services describe "${SERVICE}" \
+            --project "${PROJECT_ID}" --region "${REGION}" \
+            --format='value(spec.template.spec.containers[0].image)')
+          echo "image=${IMAGE}" >> "${GITHUB_OUTPUT}"
+
+      - name: Deploy admin revision
+        if: ${{ env.DEPLOY_MODE == 'deploy' }}
+        id: deploy
+        env:
+          IMAGE: ${{ steps.image.outputs.uri }}
+        run: |
+          set -euo pipefail
+          gcloud run services update "mypasture-${DEPLOY_ENVIRONMENT}-admin" \
+            --image "${IMAGE}" \
+            --project "${PROJECT_ID}" \
+            --region "${REGION}" \
+            --quiet
+
+      - name: Verify ready revision and IAP
+        if: ${{ env.DEPLOY_MODE == 'deploy' }}
+        run: |
+          set -euo pipefail
+          SERVICE="mypasture-${DEPLOY_ENVIRONMENT}-admin"
+          gcloud run services describe "${SERVICE}" \
+            --project "${PROJECT_ID}" --region "${REGION}" --format=json \
+            | jq -e '
+                .iapEnabled == true and
+                .status.latestReadyRevisionName == .status.latestCreatedRevisionName and
+                any(.status.conditions[]; .type == "Ready" and .status == "True")
+              '
+
+      - name: Restore previous image after verification failure
+        if: ${{ failure() && steps.deploy.outcome == 'success' && steps.previous.outputs.image != '' }}
+        env:
+          PREVIOUS_IMAGE: ${{ steps.previous.outputs.image }}
+        run: |
+          gcloud run services update "mypasture-${DEPLOY_ENVIRONMENT}-admin" \
+            --image "${PREVIOUS_IMAGE}" \
+            --project "${PROJECT_ID}" \
+            --region "${REGION}" \
+            --quiet
+
+      - name: Write deployment summary
+        if: ${{ always() }}
+        env:
+          IMAGE: ${{ steps.image.outputs.uri }}
+        run: |
+          {
+            echo "## My Pasture admin ${DEPLOY_ENVIRONMENT} deployment"
+            echo ""
+            echo "- Commit: \`${DEPLOY_SHA}\`"
+            echo "- Image: \`${IMAGE:-not-built}\`"
+            echo "- Mode: \`${DEPLOY_MODE}\`"
+            echo "- Cloud Run direct IAP must remain enabled."
+            echo "- Terraform owns runtime settings; this workflow updates only the image."
+          } >> "${GITHUB_STEP_SUMMARY}"

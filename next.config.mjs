@@ -14,6 +14,7 @@ if (production) {
 
 /** 관리자 화면의 브라우저 공격 표면을 줄이는 공통 응답 헤더입니다. */
 export default {
+  output: 'standalone',
   turbopack: { root: process.cwd() },
   async headers() {
     return [{ source: '/(.*)', headers: securityHeaders }];

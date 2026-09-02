@@ -126,12 +126,15 @@ CI는 TypeScript 검사, production dependency audit와 Next.js production build
 - [Daily word operations](docs/daily-word-operations.ko.md)
 - [Notification operations](docs/notification-operations.ko.md)
 - [Admin authentication](docs/security-auth.ko.md)
+- [GCP Cloud Run operations](docs/gcp-cloud-run-operations.ko.md)
 - Backend [API specification](https://github.com/ByeongDoo-Han/mypasture-backend/blob/main/docs/api-spec.md)
 - Backend [Architecture](https://github.com/ByeongDoo-Han/mypasture-backend/tree/main/docs/architecture)
 
 ## Deployment Notes
 
-- `API_BASE_URL`은 서버에서 접근 가능한 HTTPS backend 주소를 사용합니다.
+- 관리자 앱은 IAP로 보호된 별도 Cloud Run 서비스로 운영하며 Cloud SQL과 Redis에 직접 접근하지 않습니다.
+- `API_BASE_URL`은 Terraform이 Cloud Run에 주입하는 서버 전용 HTTPS backend 주소를 사용합니다.
+- `main` CI 성공은 staging에 자동 배포하고 production은 GitHub Environment 승인 후 수동 배포합니다.
 - production build에 local URL 또는 테스트 계정을 포함하지 않습니다.
 - backend API와 admin UI를 함께 변경할 때는 호환 가능한 API 배포 순서를 확인합니다.
 - destructive operation은 별도 승인, 감사 로그와 복구 절차를 갖춰야 합니다.

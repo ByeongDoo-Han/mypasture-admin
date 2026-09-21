@@ -38,6 +38,9 @@ jobs:
       - name: Check TypeScript
         run: npm run typecheck
 
+      - name: Test login contracts
+        run: npm test
+
       - name: Audit production dependencies
         run: npm audit --omit=dev --audit-level=high
 
@@ -46,6 +49,12 @@ jobs:
 
       - name: Build production bundle
         run: npm run build:prod
+
+      - name: Install browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Test email login in desktop and mobile browsers
+        run: npm run test:e2e
 
       - name: Build and smoke test production container
         run: |

@@ -15,3 +15,7 @@ coverage/
 npm-debug.log*
 .DS_Store
 tsconfig.tsbuildinfo
+
+# Browser verification artifacts
+test-results/
+playwright-report/

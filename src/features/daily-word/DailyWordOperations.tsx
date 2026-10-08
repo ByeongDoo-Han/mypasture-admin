@@ -3,11 +3,12 @@
 import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AlertTriangle, Check, ChevronLeft, ChevronRight, CircleCheck, Eye, FileClock, LoaderCircle, MailWarning, RefreshCw, RotateCcw, Save, Search, Wrench, X } from 'lucide-react';
+import { dailyWordDisplay } from './dailyWordDisplay';
 import type { DailyWordAdmin, DailyWordGenerationJob, DailyWordIncident, DailyWordOperationsSummary, IncidentEmailDelivery, IncidentEmailOperations } from './dailyWordAdmin';
 
 type BibleSearchVerse = { version: string; bookCode: string; bookName: string; chapter: number; verse: number; text: string };
 
-/** 날짜별 AI 초안을 원문과 대조해 편집하고 게시·반려하는 운영 화면입니다. */
+/** 요일별 자동 게시 상태와 예외 초안의 검수·복구를 확인하는 운영 화면입니다. */
 export function DailyWordOperations({ words, jobs, summary, incidents, emailOperations }: { words: DailyWordAdmin[]; jobs: DailyWordGenerationJob[]; summary: DailyWordOperationsSummary; incidents: DailyWordIncident[]; emailOperations: IncidentEmailOperations }) {
   const router = useRouter();
   const [date, setDate] = useState(tomorrow());
@@ -42,12 +43,19 @@ export function DailyWordOperations({ words, jobs, summary, incidents, emailOper
   }
 
   return <div className="space-y-8">
+    <section aria-labelledby="daily-rotation" className="border-y border-slate-200 bg-white px-4 py-5 sm:px-6">
+      <h2 id="daily-rotation" className="text-base font-semibold">자동 게시 · 예외 복구</h2>
+      <p className="mt-2 text-sm leading-6 text-slate-700">월 소망 · 화 감사 · 수 사랑 · 목 평안 · 금 기쁨. 토·일은 주제 제한 없이 성경 본문을 문맥 단위로 함께 읽습니다.</p>
+      <p className="mt-2 text-sm leading-6 text-slate-600">선정 본문과 안내문은 자동 게시됩니다. 누락·원문 오류 등 운영 사건을 확인하고 필요한 날짜만 수동 복구해 주세요. 기존 게시본은 덮어쓰지 않습니다.</p>
+    </section>
     <OperationsOverview summary={summary} />
     <IncidentOperations incidents={incidents} onChanged={() => router.refresh()} />
     <EmailDeliveryOperations initial={emailOperations} />
     <ManualDraftComposer onChanged={() => router.refresh()} />
 
-    <section className="border-y border-slate-200 bg-white px-4 py-5 sm:px-6">
+    <details className="border-y border-slate-200 bg-white px-4 py-5 sm:px-6">
+      <summary className="cursor-pointer text-sm font-semibold text-slate-700">기존 AI 초안 도구</summary>
+      <p className="mb-4 mt-3 text-sm leading-6 text-slate-600">자동 순환 중에는 AI 초안 생성 요청이 허용되지 않습니다. 기존 초안 운영 환경에서만 이 도구를 사용하며, 매일 실행할 필요가 없습니다.</p>
       <div className="flex flex-wrap items-end gap-4">
         <label className="text-sm font-medium text-slate-700">대상 날짜<input type="date" value={date} onChange={(event) => setDate(event.target.value)} className="mt-2 block h-10 rounded-md border border-slate-300 px-3" /></label>
         <label className="min-w-[260px] flex-1 text-sm font-medium text-slate-700">생성 사유<input value={reason} maxLength={500} onChange={(event) => setReason(event.target.value)} className="mt-2 h-10 w-full rounded-md border border-slate-300 px-3" /></label>
@@ -55,7 +63,7 @@ export function DailyWordOperations({ words, jobs, summary, incidents, emailOper
         <button type="button" disabled={pending !== null} onClick={generate} className="inline-flex h-10 items-center gap-2 rounded-md bg-slate-900 px-4 text-sm font-semibold text-white disabled:opacity-50">{pending === 'generate' ? <LoaderCircle size={16} className="animate-spin" /> : <RefreshCw size={16} />}초안 생성</button>
       </div>
       {message ? <p role="status" className="mt-3 text-sm font-medium text-slate-700">{message}</p> : null}
-    </section>
+    </details>
 
     <section>
       <div className="mb-3 flex items-center gap-2"><FileClock size={18} className="text-slate-500" /><h2 className="text-base font-semibold">최근 생성 작업</h2></div>
@@ -63,7 +71,7 @@ export function DailyWordOperations({ words, jobs, summary, incidents, emailOper
     </section>
 
     <section className="space-y-4">
-      <h2 className="text-base font-semibold">검수 목록</h2>
+      <h2 className="text-base font-semibold">게시 상태 · 예외 초안</h2>
       {words.map((word) => <DailyWordEditor key={word.id} word={word} onChanged={() => router.refresh()} />)}
       {words.length === 0 ? <div className="border-y border-slate-200 bg-white px-4 py-12 text-center text-sm text-slate-500">조회 기간에 생성된 오늘의 말씀이 없습니다.</div> : null}
     </section>
@@ -276,9 +284,10 @@ function Metric({ label: title, value, detail, tone = 'default' }: { label: stri
   return <div className="min-w-0 border-b border-slate-100 px-4 py-4 last:border-b-0 sm:[&:nth-child(3)]:border-b-0 sm:[&:nth-child(4)]:border-b-0 lg:border-b-0"><p className="text-xs font-medium text-slate-500">{title}</p><p className={`mt-2 break-words text-lg font-bold ${tone === 'danger' ? 'text-red-700' : 'text-slate-950'}`}>{value}</p><p className="mt-1 text-xs text-slate-500">{detail}</p></div>;
 }
 
-function readinessHelp(status: 'MISSING' | 'DRAFT' | 'PUBLISHED' | 'REJECTED') { return ({ MISSING: '생성 필요', DRAFT: '관리자 검수 필요', PUBLISHED: '사용자 노출 준비 완료', REJECTED: '재생성 또는 수정 필요' } as const)[status]; }
+function readinessHelp(status: 'MISSING' | 'DRAFT' | 'PUBLISHED' | 'REJECTED') { return ({ MISSING: '자동 게시·원문 상태 확인 필요', DRAFT: '예외 초안 · 관리자 확인 필요', PUBLISHED: '사용자 노출 준비 완료', REJECTED: '수동 복구 또는 수정 필요' } as const)[status]; }
 
 function DailyWordEditor({ word, onChanged }: { word: DailyWordAdmin; onChanged: () => void }) {
+  const presentation = dailyWordDisplay(word);
   const [meditation, setMeditation] = useState(word.meditation);
   const [question, setQuestion] = useState(word.actionQuestion);
   const [reason, setReason] = useState('성경 원문과 묵상 내용을 검수했습니다');
@@ -306,7 +315,7 @@ function DailyWordEditor({ word, onChanged }: { word: DailyWordAdmin; onChanged:
   }
 
   return <article className="border-y border-slate-200 bg-white px-4 py-5 sm:px-6">
-    <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs font-semibold text-emerald-700">{word.date} · revision {word.contentRevision}</p><h3 className="mt-1 text-lg font-bold text-slate-950">{word.bookName} {word.chapter}:{word.verse}</h3><p className="mt-2 max-w-4xl text-sm leading-6 text-slate-700">{word.verseText}</p></div><Status value={word.status} /></div>
+    <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs font-semibold text-emerald-700">{word.date} · revision {word.contentRevision}</p><h3 className="mt-1 text-lg font-bold text-slate-950">{presentation.reference}</h3><p className="mt-2 text-xs font-medium text-slate-500">{presentation.source}{presentation.metadata ? ` · ${presentation.metadata}` : ''} · {presentation.review}</p><p className="mt-2 max-w-4xl whitespace-pre-line text-sm leading-6 text-slate-700">{presentation.text}</p></div><Status value={word.status} /></div>
     <div className="mt-5 grid gap-4 lg:grid-cols-2"><label className="text-sm font-medium text-slate-700">묵상<textarea disabled={!editable} value={meditation} onChange={(event) => setMeditation(event.target.value)} rows={6} maxLength={1000} className="mt-2 w-full resize-y rounded-md border border-slate-300 px-3 py-2 leading-6 disabled:bg-slate-50" /></label><label className="text-sm font-medium text-slate-700">실천 질문<textarea disabled={!editable} value={question} onChange={(event) => setQuestion(event.target.value)} rows={6} maxLength={300} className="mt-2 w-full resize-y rounded-md border border-slate-300 px-3 py-2 leading-6 disabled:bg-slate-50" /></label></div>
     <div className="mt-4 grid gap-3 text-xs text-slate-500 sm:grid-cols-3"><span>모델 {word.model ?? '-'}</span><span>토큰 {word.embeddingTokens + word.promptTokens + word.completionTokens}</span><span>예상 비용 ${word.estimatedCostUsd.toFixed(6)}</span></div>
     {editable ? <div className="mt-5 flex flex-wrap items-end gap-3"><label className="min-w-[260px] flex-1 text-sm font-medium text-slate-700">조치 사유<input value={reason} onChange={(event) => setReason(event.target.value)} maxLength={500} className="mt-2 h-10 w-full rounded-md border border-slate-300 px-3" /></label><Action disabled={pending !== null} onClick={() => send('update')} icon={pending === 'update' ? <LoaderCircle size={15} className="animate-spin" /> : <Save size={15} />}>저장</Action><Action disabled={pending !== null} onClick={() => send('reject')} icon={<X size={15} />}>반려</Action><button disabled={pending !== null} onClick={() => send('publish')} className="inline-flex h-10 items-center gap-2 rounded-md bg-emerald-700 px-4 text-sm font-semibold text-white disabled:opacity-50"><Check size={15} />게시</button></div> : null}

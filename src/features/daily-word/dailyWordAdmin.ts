@@ -1,5 +1,6 @@
 import 'server-only';
 import { z } from 'zod';
+import { dailyWordMetadataSchema } from './dailyWordMetadata';
 import { requireAdminSession } from '../../lib/adminSession';
 import { backendUrl } from '../../lib/backend';
 
@@ -7,6 +8,7 @@ const statusSchema = z.enum(['DRAFT', 'PUBLISHED', 'REJECTED']);
 const sourceSchema = z.enum(['AI', 'MANUAL', 'CURATED']);
 
 export const dailyWordSchema = z.object({
+  ...dailyWordMetadataSchema.shape,
   id: z.string().uuid(), date: z.string(), verseId: z.number().nullable(), version: z.string(),
   bookCode: z.string(), bookName: z.string(), chapter: z.number(), verse: z.number(), verseText: z.string(),
   meditation: z.string(), actionQuestion: z.string(), status: statusSchema, source: sourceSchema,
@@ -83,7 +85,7 @@ export type DailyWordOperationsSummary = z.infer<typeof operationsSummarySchema>
 export type IncidentEmailDelivery = z.infer<typeof incidentEmailDeliverySchema>;
 export type IncidentEmailOperations = z.infer<typeof incidentEmailOperationsSchema>;
 
-/** 관리자 JWT로 오늘의 말씀 검수 목록과 최근 생성 작업을 서버에서 조회하고 검증합니다. */
+/** 관리자 JWT로 오늘의 말씀 자동 게시·예외 복구 목록과 최근 생성 작업을 서버에서 조회하고 검증합니다. */
 export async function getDailyWordOperations(): Promise<{
   words: DailyWordAdmin[];
   jobs: DailyWordGenerationJob[];

@@ -1,5 +1,6 @@
 import { createServer } from 'node:http';
 import { randomUUID } from 'node:crypto';
+import { replyDailyWordFixture } from '../tests/fixtures/dailyWordRotation.mjs';
 
 /** 브라우저 테스트에서 메일 발송과 운영 API를 대체하는 로컬 전용 서버입니다. */
 const challenges = new Map();
@@ -11,6 +12,7 @@ createServer(async (req, res) => {
   for await (const chunk of req) raw += chunk;
   let data;
   try { data = raw ? JSON.parse(raw) : {}; } catch { return reply(400, {}); }
+  if (replyDailyWordFixture(req, reply)) return;
   if (req.url === '/api/v1/auth/admin-email-login/requests') {
     if (data.email === 'down@example.test') return reply(503, { message: 'internal failure must not be exposed' });
     const challengeId = randomUUID();

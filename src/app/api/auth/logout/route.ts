@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ACCESS_COOKIE, REFRESH_COOKIE, backendUrl, secureCookie } from '../../../../lib/backend';
+import { isAdminLoginSameOrigin } from '../../../../features/auth/adminEmailLoginContracts';
 
 /** 백엔드 세션을 폐기한 뒤 관리자 쿠키를 항상 제거합니다. */
 export async function POST(request: NextRequest) {
   const origin = request.headers.get('origin');
-  if (origin && new URL(origin).host !== request.nextUrl.host) {
+  if (!isAdminLoginSameOrigin(origin, request.url, request.headers.get('host'), secureCookie())) {
     return NextResponse.json({ message: '허용되지 않은 요청입니다.' }, { status: 403 });
   }
   let accessToken = request.cookies.get(ACCESS_COOKIE)?.value;

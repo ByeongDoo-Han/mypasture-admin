@@ -22,6 +22,7 @@
 | 이메일 | 오늘의 말씀 email Outbox와 실패 작업 확인 |
 | 쿠폰 | 캠페인 생성, 사용 기간·횟수와 꾸미기 보상 관리 |
 | Moderation | AI 답변·QT 콘텐츠 신고 검토와 운영 조치 |
+| API 문서 | 로그인 후 Swagger/OpenAPI 명세 조회. 요청 실행은 비활성화 |
 
 ## Architecture
 
@@ -57,6 +58,7 @@ src
 ├── components
 ├── features
 │   ├── ai-models
+│   ├── api-docs
 │   ├── bible-commentary
 │   ├── coupon
 │   ├── daily-word
@@ -117,6 +119,7 @@ CI는 TypeScript 검사, production dependency audit와 Next.js production build
 - 로그인 후에도 서버 렌더링과 BFF에서 `ADMIN` 역할을 다시 검증합니다.
 - access token은 브라우저 JavaScript가 읽을 수 없는 HttpOnly·SameSite cookie에 저장합니다.
 - BFF는 임의의 외부 URL을 proxy하지 않고 허용된 backend path만 호출합니다.
+- API 문서는 서버에서 활성 `ADMIN` 세션으로 백엔드 명세를 조회한 뒤 화면에 전달하며, access token은 브라우저 코드로 전달하지 않습니다.
 - mutation은 backend 권한 검증과 감사 operation ID를 사용합니다.
 - 운영 API key, OAuth secret과 사용자 token을 client bundle에 포함하지 않습니다.
 - 사용자 생성 콘텐츠는 원문을 무분별하게 노출하지 않고 신고·차단 정책에 따라 처리합니다.

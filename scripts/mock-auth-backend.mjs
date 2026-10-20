@@ -29,6 +29,13 @@ createServer(async (req, res) => {
     });
   }
   if (req.url === '/api/v1/auth/me' && req.headers.authorization === 'Bearer test-access-token') return reply(200, admin);
+  if (req.url === '/v3/api-docs') {
+    if (req.headers.authorization !== 'Bearer test-access-token') return reply(401, { message: 'Unauthorized' });
+    return reply(200, {
+      openapi: '3.0.1', info: { title: '테스트 API', version: '1.0.0' },
+      paths: { '/api/v1/test': { get: { summary: '테스트 조회', responses: { 200: { description: '성공' } } } } },
+    });
+  }
   if (req.url === '/health') return reply(200, { status: 'UP' });
   reply(404, {});
 }).listen(4181, '127.0.0.1', () => console.log('Mock authentication backend ready on localhost:4181'));

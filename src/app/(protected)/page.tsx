@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { ArrowRight, MessageSquareText, QrCode, UsersRound } from 'lucide-react';
+import { ArrowRight, FileCode2, MessageSquareText, QrCode, UsersRound } from 'lucide-react';
 import { formatNumber } from '../../lib/format';
 import { getQuietTimeStatistics } from '../../features/quiet-time/quietTimeAdmin';
 
@@ -15,10 +15,15 @@ export default async function AdminDashboardPage() {
 
   return (
     <div className="mx-auto max-w-7xl">
-      <header className="mb-7">
-        <p className="text-sm font-medium text-emerald-700">운영 현황</p>
-        <h1 className="mt-1 text-2xl font-bold text-slate-950">QT 모임 대시보드</h1>
-        <p className="mt-2 text-sm text-slate-600">최근 30일 기준 세션과 참여 흐름입니다.</p>
+      <header className="mb-7 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="text-sm font-medium text-emerald-700">운영 현황</p>
+          <h1 className="mt-1 text-2xl font-bold text-slate-950">QT 모임 대시보드</h1>
+          <p className="mt-2 text-sm text-slate-600">최근 30일 기준 세션과 참여 흐름입니다.</p>
+        </div>
+        <Link href="/api-docs" className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-md border border-emerald-700 bg-white px-4 text-sm font-semibold text-emerald-800 hover:bg-emerald-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700">
+          <FileCode2 aria-hidden="true" size={17} />Swagger 문서 열기
+        </Link>
       </header>
 
       {statistics ? (

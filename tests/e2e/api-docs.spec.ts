@@ -10,7 +10,7 @@ test('API 문서는 로그인한 관리자에게만 보이고 요청 실행은 �
   await page.getByRole('button', { name: '로그인', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'QT 모임 대시보드' })).toBeVisible();
 
-  await page.getByRole('link', { name: 'API 문서' }).click();
+  await page.getByRole('link', { name: 'Swagger 문서 열기' }).click();
   await expect(page.getByRole('heading', { name: 'API 문서' })).toBeVisible();
   await expect(page.getByText('테스트 API')).toBeVisible();
   await page.getByRole('button', { name: 'Expand operation' }).click();

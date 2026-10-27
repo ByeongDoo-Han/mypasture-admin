@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { z } from 'zod/v3';
 
 /** 구버전 게시본은 추가 필드가 없어도 조회할 수 있습니다. */
 export const dailyWordMetadataSchema = z.object({

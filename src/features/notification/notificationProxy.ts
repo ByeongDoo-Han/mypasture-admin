@@ -1,6 +1,6 @@
 import 'server-only';
 import { NextRequest, NextResponse } from 'next/server';
-import { z } from 'zod';
+import { z } from 'zod/v3';
 import { ACCESS_COOKIE, backendUrl } from '../../lib/backend';
 import { notificationOperationsSchema, notificationTypeSchema } from './notificationAdmin';
 

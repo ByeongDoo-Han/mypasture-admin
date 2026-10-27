@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { z } from 'zod/v3';
 
 /** 이메일 로그인 입력과 백엔드 응답을 검증하고 브라우저에 필요한 필드만 남깁니다. */
 export const emailLoginRequestSchema = z.object({ email: z.string().trim().email().max(320) }).strict();

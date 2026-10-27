@@ -1,5 +1,5 @@
 import 'server-only';
-import { z } from 'zod';
+import { z } from 'zod/v3';
 import { backendUrl } from '../../lib/backend';
 import { requireAdminSession } from '../../lib/adminSession';
 

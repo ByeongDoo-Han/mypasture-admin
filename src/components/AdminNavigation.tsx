@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { BarChart3, BellRing, BookOpenText, BrainCircuit, CalendarCheck, FileCode2, Flag, Gift, ListChecks } from 'lucide-react';
+import { BarChart3, BellRing, BookOpenText, BrainCircuit, CalendarCheck, FileCode2, Flag, Gift, ListChecks, MessageSquareText } from 'lucide-react';
 
 const items = [
   { href: '/', label: '운영 현황', icon: BarChart3 },
@@ -11,6 +11,7 @@ const items = [
   { href: '/bible-commentaries', label: '장별 해설', icon: BookOpenText },
   { href: '/notifications', label: '알림 운영', icon: BellRing },
   { href: '/ai-models', label: 'AI 모델', icon: BrainCircuit },
+  { href: '/ai-history', label: 'AI 상담 기록', icon: MessageSquareText },
   { href: '/moderation', label: '신고 관리', icon: Flag },
   { href: '/coupons', label: '이벤트 보상', icon: Gift },
   { href: '/api-docs', label: 'API 문서', icon: FileCode2 },

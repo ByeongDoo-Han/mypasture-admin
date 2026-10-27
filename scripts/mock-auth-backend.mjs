@@ -5,6 +5,8 @@ import { replyDailyWordFixture } from '../tests/fixtures/dailyWordRotation.mjs';
 /** 브라우저 테스트에서 메일 발송과 운영 API를 대체하는 로컬 전용 서버입니다. */
 const challenges = new Map();
 const admin = { id: 'f71dd5ce-7e62-4abe-9172-e43c80a76742', email: 'admin@example.test', displayName: '테스트 관리자', role: 'ADMIN' };
+const aiTurnId = 'e5f4f12e-315f-4cc9-91a4-182e8c42d619';
+const aiUserId = 'a9ac5959-a79c-4ae1-a65a-c68cc8db29ec';
 createServer(async (req, res) => {
   res.setHeader('Content-Type', 'application/json');
   const reply = (status, body) => { res.writeHead(status); res.end(JSON.stringify(body)); };
@@ -29,6 +31,15 @@ createServer(async (req, res) => {
     });
   }
   if (req.url === '/api/v1/auth/me' && req.headers.authorization === 'Bearer test-access-token') return reply(200, admin);
+  if (req.url?.startsWith('/api/v1/admin/ai/history?')) {
+    if (req.headers.authorization !== 'Bearer test-access-token') return reply(403, {});
+    return reply(200, { items: [{ turnId: aiTurnId, userId: aiUserId, displayName: '질문자', email: 'member@example.test', questionPreview: '기도에 대해 묻고 싶어요', createdAt: '2026-10-27T08:00:00Z', revisionCount: 0 }], page: 0, size: 20, totalElements: 1, totalPages: 1 });
+  }
+  if (req.url === `/api/v1/admin/ai/history/${aiTurnId}/review` && req.method === 'POST') {
+    if (req.headers.authorization !== 'Bearer test-access-token') return reply(403, {});
+    if (!['QUALITY_REVIEW', 'SAFETY_REVIEW', 'USER_SUPPORT'].includes(data.reason)) return reply(400, {});
+    return reply(200, { userId: aiUserId, displayName: '질문자', email: 'member@example.test', createdAt: '2026-10-27T08:00:00Z', history: { rootTurnId: aiTurnId, question: '기도에 대해 묻고 싶어요', versions: [{ turnId: aiTurnId, kind: 'ORIGINAL', createdAt: '2026-10-27T08:00:00Z', answer: '기도는 마음을 하나님께 드리는 시간입니다.', citations: [], prayer: null }] } });
+  }
   if (req.url === '/v3/api-docs') {
     if (req.headers.authorization !== 'Bearer test-access-token') return reply(401, { message: 'Unauthorized' });
     return reply(200, {

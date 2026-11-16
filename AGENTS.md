@@ -53,6 +53,8 @@ git diff --check
 
 작업별 원본 문서는 [문서 색인](docs/README.md)에서 찾습니다. 권한·데이터 정책은 [도메인](docs/domain/README.md), 운영 절차는 [운영](docs/operations/README.md), 검사 근거는 [검증](docs/verification/README.md)과 [작업 기록](docs/tasks/README.md)을 확인합니다. 날짜가 있는 기록은 현재 상태를 대체하지 않습니다.
 
+기능 구현과 기존 기능 개선은 Issue에 문제·목표·완료 조건·검증 계획을 먼저 적고, [작업 기록 양식](docs/tasks/TEMPLATE.md)으로 변경 전후와 실제 검증·PR 상태를 남깁니다. `docs/tasks`는 당시 실행 근거이며 현재 권한·정책은 `docs/domain`의 원본과 코드에서 확인합니다. 여러 에이전트가 참여하면 작업 계약에 구현 Owner, 허용 경로, 검토자, 인수 조건을 지정하고 공유 파일은 한 명만 수정합니다. `ui_designer`는 필요할 때 관리자 UI의 전문 검토자로 참여하며 구현 Owner는 별도로 지정합니다.
+
 ## 완료 보고
 
 - 변경한 관리 업무 흐름

@@ -30,6 +30,7 @@ GEMINI.md
 /.agents/skills/**/*.yml
 /.agents/skills/**/*.json
 /.agents/roles/
+/.agents/tasks/
 /.agents/*.md
 /.agents/*.yml
 /.agents/*.yaml

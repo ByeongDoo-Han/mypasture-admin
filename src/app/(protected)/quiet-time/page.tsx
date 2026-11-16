@@ -37,7 +37,25 @@ export default async function QuietTimeSessionsPage({ searchParams }: { searchPa
       ) : (
         <>
           <div className="mt-5 flex items-center justify-between text-sm"><p className="text-slate-600">총 <strong className="text-slate-950">{formatNumber(sessions.totalElements)}</strong>개</p><p className="text-slate-500">{sessions.page + 1} / {Math.max(sessions.totalPages, 1)} 페이지</p></div>
-          <div className="mt-3 overflow-x-auto border-y border-slate-200 bg-white">
+          <div className="mt-3 divide-y divide-slate-200 border-y border-slate-200 bg-white md:hidden">
+            {sessions.content.map((session) => (
+              <article key={session.id} className="space-y-3 px-4 py-4">
+                <div>
+                  <Link href={`/quiet-time/${session.id}`} className="break-words font-semibold text-slate-950 underline-offset-4 hover:text-emerald-700 focus-visible:underline">{session.title}</Link>
+                  <p className="mt-1 break-words text-xs text-slate-500">{session.pastureName ?? session.passageReference}</p>
+                </div>
+                <div className="flex flex-wrap gap-2"><ScopeBadge scope={session.scope} /><StatusBadge status={session.status} /></div>
+                <dl className="grid grid-cols-2 gap-x-3 gap-y-2 text-sm">
+                  <div className="col-span-2"><dt className="text-xs text-slate-500">관리자</dt><dd className="break-words text-slate-700">{session.managerDisplayName}</dd></div>
+                  <div><dt className="text-xs text-slate-500">참여</dt><dd className="font-medium tabular-nums">{formatNumber(session.participantCount)}명</dd></div>
+                  <div><dt className="text-xs text-slate-500">답변</dt><dd className="font-medium tabular-nums">{formatNumber(session.answerCount)}개</dd></div>
+                  <div className="col-span-2"><dt className="text-xs text-slate-500">시작</dt><dd className="text-slate-700">{formatDateTime(session.meetingStartsAt)}</dd></div>
+                </dl>
+              </article>
+            ))}
+            {sessions.content.length === 0 ? <p className="px-4 py-10 text-center text-slate-500">조건에 맞는 QT 모임이 없습니다.</p> : null}
+          </div>
+          <div className="mt-3 hidden overflow-x-auto border-y border-slate-200 bg-white md:block">
             <table className="w-full min-w-[940px] border-collapse text-left text-sm">
               <thead className="bg-slate-50 text-xs text-slate-500"><tr><th className="px-4 py-3 font-medium">모임</th><th className="px-3 py-3 font-medium">유형</th><th className="px-3 py-3 font-medium">상태</th><th className="px-3 py-3 font-medium">관리자</th><th className="px-3 py-3 text-right font-medium">참여</th><th className="px-3 py-3 text-right font-medium">답변</th><th className="px-4 py-3 font-medium">시작</th></tr></thead>
               <tbody className="divide-y divide-slate-100">

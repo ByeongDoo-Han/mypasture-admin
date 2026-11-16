@@ -49,6 +49,10 @@ git diff --check
 - 타입 검사, 운영 빌드와 CI를 통과한 뒤 merge하고 원격 기능 브랜치를 삭제합니다.
 - `main` 대상 PR과 운영 배포는 사람의 별도 승인이 필요합니다.
 
+## 문서 탐색
+
+작업별 원본 문서는 [문서 색인](docs/README.md)에서 찾습니다. 권한·데이터 정책은 [도메인](docs/domain/README.md), 운영 절차는 [운영](docs/operations/README.md), 검사 근거는 [검증](docs/verification/README.md)과 [작업 기록](docs/tasks/README.md)을 확인합니다. 날짜가 있는 기록은 현재 상태를 대체하지 않습니다.
+
 ## 완료 보고
 
 - 변경한 관리 업무 흐름

@@ -6,7 +6,7 @@
 
 `docs 2`의 `dev/ux-ui-guidelines.md`에서 예측 가능성·단계적 정보 노출·오류 복구를, `task-docs/sales-admin/02-ui-improvement/ui-design-improvement.md`에서 셸/목록/대시보드별 작업과 상태별 화면 검수를 참고했다. `dev/brand-guidelines.md`의 코드 기반 시각 원본 원칙도 **방법**으로 참고한다. 외부 자료의 지표·업무 흐름·색상·간격 수치·기술 스택은 작은목장의 제품 기준으로 채택하지 않는다.
 
-현재 관리자 규칙은 조용하고 밀도 높은 운영 레이아웃, 표·필터·페이지네이션·로딩·빈·오류 상태, 위험 작업의 대상/결과 확인을 요구한다([`AGENTS.md`](../../AGENTS.md)). 현재 화면은 `src/app/(protected)/page.tsx`의 QT 운영 요약, `src/app/(protected)/quiet-time/page.tsx`의 필터형 목록 등으로 구성된다. 화면 스타일은 [`src/app/globals.css`](../../src/app/globals.css)와 실제 컴포넌트를 근거로 판단한다. 새 색상·컴포넌트 토큰을 이 문서에서 확정하지 않는다.
+관리자 화면은 조용하고 밀도 높은 운영 레이아웃, 표·필터·페이지네이션·로딩·빈·오류 상태, 위험 작업의 대상/결과 확인을 기준으로 검토한다. 현재 화면은 `src/app/(protected)/page.tsx`의 QT 운영 요약, `src/app/(protected)/quiet-time/page.tsx`의 필터형 목록 등으로 구성된다. 화면 스타일은 [`src/app/globals.css`](../../src/app/globals.css)와 실제 컴포넌트를 근거로 판단한다. 새 색상·컴포넌트 토큰을 이 문서에서 확정하지 않는다.
 
 ## 적용 원칙
 

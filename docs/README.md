@@ -5,6 +5,7 @@
 | 영역 | 사용할 때 | 진입점 |
 | --- | --- | --- |
 | [도메인 정책](domain/README.md) | 관리자 인증과 권한을 다룰 때 | [관리자 인증](domain/security-auth.ko.md) |
+| [제품과 화면](product/README.md) | 관리자 업무 화면을 설계·검토할 때 | [디자인 적용 기준](product/admin-design-guidelines.ko.md) |
 | [운영](operations/README.md) | 알림·말씀·Cloud Run 운영을 준비할 때 | [운영 문서](operations/README.md) |
 | [검증](verification/README.md) | 타입 검사·빌드·CI 근거를 확인할 때 | [검증 안내](verification/README.md) |
 | [작업 기록](tasks/README.md) | 이슈별 계획과 당시 결과를 찾을 때 | [작업 기록](tasks/README.md) |

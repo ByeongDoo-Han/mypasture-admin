@@ -1,5 +1,8 @@
 ## 변경 목적
 
+- 대상: 세부 작업은 `dev`, 릴리스는 `dev → main`
+- 릴리스 PR이면 포함한 Issue/PR, 최종 CI, Vercel/GCP 배포 영향과 별도 승인 범위를 적습니다.
+
 - 작업 ID:
 - 관련 Issue: Closes #
 - 관리 도메인:

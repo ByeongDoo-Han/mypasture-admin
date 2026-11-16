@@ -39,15 +39,15 @@ git diff --check
 
 ## GitHub 작업 흐름
 
-- 기능 구현 전 GitHub Issue를 만들고 최신 `main`에서 작업을 시작합니다.
+- 기능 구현 전 GitHub Issue를 만들고 최신 `dev`에서 세부 작업 브랜치를 만듭니다.
 - Issue 본문은 `.github/ISSUE_TEMPLATE/feature.md` 구조를 따르는 GitHub Flavored Markdown으로 작성합니다.
 - 작업 범위, 완료 조건과 검증 계획은 `- [ ]` 체크박스로 작성하고 실제 줄바꿈을 유지합니다.
 - GitHub CLI에서는 본문을 Markdown 파일로 준비해 `gh issue create --body-file <file>`을 사용합니다. 백틱이 포함된 본문을 셸의 `--body` 인자로 직접 전달하지 않습니다.
 - 브랜치 이름은 `feat/<domain>-<issue-number>-<feature-slug>` 형식을 사용합니다.
 - 커밋은 `feat(<domain>): <summary> (#<issue-number>)` 형식을 기본으로 합니다.
-- PR의 base는 `main`이며 본문에 `Closes #<issue-number>`를 포함합니다.
+- 세부 작업 PR의 base는 `dev`이며 본문에 `Closes #<issue-number>`를 포함합니다. 검증된 `dev`만 릴리스 PR로 `main`에 병합하고 릴리스 PR에는 CI와 배포 계획을 기록합니다.
 - 타입 검사, 운영 빌드와 CI를 통과한 뒤 merge하고 원격 기능 브랜치를 삭제합니다.
-- `main` 대상 PR과 운영 배포는 사람의 별도 승인이 필요합니다.
+- `dev`에서 `main`으로 향하는 PR과 운영 배포는 각각 사람의 별도 승인이 필요합니다. `main` 병합이 Vercel Production 배포를 시작할 수 있으므로 병합 전에 배포 영향도 확인합니다.
 
 ## 문서 탐색
 

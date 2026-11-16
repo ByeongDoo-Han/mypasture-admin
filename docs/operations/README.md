@@ -5,3 +5,4 @@
 - [오늘의 말씀 운영](daily-word-operations.ko.md)
 - [알림 운영](notification-operations.ko.md)
 - [GCP Cloud Run 운영](gcp-cloud-run-operations.ko.md)
+- [브랜치 통합과 릴리스](branch-release.ko.md)

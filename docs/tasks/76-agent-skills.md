@@ -3,7 +3,7 @@
 ## 계획과 근거
 
 - 종류: 개발 절차 개선
-- Issue: [#76](https://github.com/ByeongDoo-Han/mypasture-admin/issues/76)
+- Issue: [#76](https://github.com/ByeongDoo-Han/mypasture-admin/issues/76), 구현 [PR #77](https://github.com/ByeongDoo-Han/mypasture-admin/pull/77)
 - 기존 상태: 필수 타입·운영 빌드·CI와 UI 규칙은 있으나 서브에이전트가 결과를 인계하는 프로젝트 스킬이 없었다.
 - 목표: 관리자 변경 검증과 화면·권한·부분 실패 상태의 전문 검토 절차를 제공한다.
 - Owner·허용 경로: 관리자 문서 담당 / `AGENTS.md`, `.agents/skills/**`, `docs/tasks/**`
@@ -28,9 +28,9 @@
 
 | 단계 | 작성 시점 상태 |
 | --- | --- |
-| 로컬 구현·검증 | 위 검사 완료 |
-| PR 최종 커밋 CI·Vercel Preview | 미실행 |
-| `dev` 병합 | 미실행 |
+| 로컬 구현·검증 | 위 검사 완료, `a91e6bf` |
+| PR 최종 커밋 CI·Vercel Preview | [Admin CI run 43815502292](https://github.com/ByeongDoo-Han/mypasture-admin/actions/runs/43815502292)와 Vercel Preview 통과 |
+| `dev` 병합 | PR #77 squash merge `094f55e`, 원격 기능 브랜치 삭제 |
 | `main` 병합·Production 배포 | 미실행 |
 
 이후 상태는 이슈와 PR의 최신 커밋·CI에서 확인한다.

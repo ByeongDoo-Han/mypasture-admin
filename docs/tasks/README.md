@@ -8,5 +8,6 @@
 - [이메일 로그인 작업](admin-email-login-49.md)
 - [오늘의 말씀 보안 패치](daily-word-56-security-patches.md)
 - [작업 기록 규칙 개선 #73](73-agent-work-records.md)
+- [서브에이전트 검증·UI 스킬 #76](76-agent-skills.md)
 
 현재 상태는 최신 코드, PR 및 CI를 확인합니다.

@@ -32,7 +32,7 @@
 
 ## 진행 상태와 인수인계
 
-- 로컬 구현: 문서 작성 및 필수 로컬 검사 완료. PR 최종 커밋 검증은 별도 확인합니다.
+- 로컬 구현: 문서 작성 및 필수 로컬 검사 완료.
 - 최종 PR CI: `f290b37`에서 [admin-ci run 43808338449](https://github.com/ByeongDoo-Han/mypasture-admin/actions/runs/43808338449) 통과. Vercel Preview도 통과했으며 Production 배포 근거는 아닙니다.
 - `dev` 병합: PR #74가 2026-11-16에 squash 병합되어 `387dd85a`가 `dev`에 반영되었습니다. 원격 기능 브랜치는 삭제 확인했습니다.
 - `main` 릴리스 병합: 미실행.

@@ -6,6 +6,7 @@
 
 - 종류: 작업 방식 개선(문서)
 - Issue: [#73](https://github.com/ByeongDoo-Han/mypasture-admin/issues/73)
+- 구현 PR: [#74](https://github.com/ByeongDoo-Han/mypasture-admin/pull/74)
 - 구현 Owner: admin 문서 담당 에이전트
 - 허용 경로: `AGENTS.md`, `docs/tasks/**`
 - 독립 검토: 최종 통합 담당의 diff·문서 링크 검토
@@ -32,8 +33,8 @@
 ## 진행 상태와 인수인계
 
 - 로컬 구현: 문서 작성 및 필수 로컬 검사 완료. PR 최종 커밋 검증은 별도 확인합니다.
-- 최종 PR CI: 미실행.
-- `dev` 병합: 미실행.
+- 최종 PR CI: `f290b37`에서 [admin-ci run 43808338449](https://github.com/ByeongDoo-Han/mypasture-admin/actions/runs/43808338449) 통과. Vercel Preview도 통과했으며 Production 배포 근거는 아닙니다.
+- `dev` 병합: PR #74가 2026-11-16에 squash 병합되어 `387dd85a`가 `dev`에 반영되었습니다. 원격 기능 브랜치는 삭제 확인했습니다.
 - `main` 릴리스 병합: 미실행.
 - 운영 배포와 실제 확인: 미실행. 문서 변경이며 운영 배포 요청 범위 밖입니다.
 - 다음 담당자: 실제 PR·CI·배포 상태를 확인하고 후속 기능·개선 작업에서 양식을 사용합니다.

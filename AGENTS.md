@@ -29,7 +29,11 @@
 - 장식용 대형 hero와 카드 중첩을 피합니다.
 - 좁은 화면에서도 텍스트와 버튼이 겹치지 않도록 확인합니다.
 
+화면 설계나 독립 UI 검토가 필요한 작업에는 [UI 검토 스킬](.agents/skills/mypasture-ui-review/SKILL.md)을 사용합니다. 구현 Owner와 검토자를 작업 계약에 구분합니다.
+
 ## 필수 검증
+
+관리자 변경의 검사와 결과 인수에는 [변경 검증 스킬](.agents/skills/mypasture-change-verification/SKILL.md)을 사용합니다. 스킬은 아래 필수 명령과 CI를 완화하지 않습니다.
 
 ```bash
 npm run typecheck

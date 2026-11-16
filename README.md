@@ -126,11 +126,11 @@ CI는 TypeScript 검사, production dependency audit와 Next.js production build
 
 ## Documentation
 
-- [Daily word operations](docs/daily-word-operations.ko.md)
-- [Notification operations](docs/notification-operations.ko.md)
-- [Admin authentication](docs/security-auth.ko.md)
-- [GCP Cloud Run operations](docs/gcp-cloud-run-operations.ko.md)
-- Backend [API specification](https://github.com/ByeongDoo-Han/mypasture-backend/blob/main/docs/api-spec.md)
+- [Daily word operations](docs/operations/daily-word-operations.ko.md)
+- [Notification operations](docs/operations/notification-operations.ko.md)
+- [Admin authentication](docs/domain/security-auth.ko.md)
+- [GCP Cloud Run operations](docs/operations/gcp-cloud-run-operations.ko.md)
+- Backend [API specification](https://github.com/ByeongDoo-Han/mypasture-backend/blob/main/docs/reference/api-spec.md)
 - Backend [Architecture](https://github.com/ByeongDoo-Han/mypasture-backend/tree/main/docs/architecture)
 
 ## Deployment Notes
